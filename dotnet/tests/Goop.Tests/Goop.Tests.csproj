@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Unit tests for the managed API AND for the C ABI itself. Testing the ABI
+       from C# rather than from C++ is deliberate: a foreign caller going through
+       P/Invoke is the only thing that genuinely exercises calling conventions,
+       struct layout, handle lifetime and marshalling. The C++ core has its own
+       Catch2 suite over in native/tests. -->
+
+  <PropertyGroup>
+    <!-- Both frameworks, because net48 is where the interop mistakes surface. -->
+    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Goop\Goop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pinned to exact versions, never a floating wildcard: a test run that
+         fails because a dependency moved overnight is indistinguishable from a
+         test run that fails because the code broke. -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
+  </ItemGroup>
+
+  <!-- =====================================================================
+       Copy the native DLL next to the test binaries.
+
+       WHY THIS IS NEEDED: goop.dll is produced by CMake, not by MSBuild, so
+       nothing in the .NET build graph knows it exists. When a P/Invoke fires,
+       the OS loader looks for "goop.dll" along the standard search path, which
+       begins with the directory of the process that is running - for tests,
+       the test host's working directory, i.e. this project's output folder. If
+       the DLL is not sitting there, every interop test fails with
+       DllNotFoundException, which says nothing about the real problem.
+
+       WHY IT IS A WARNING, NOT AN ERROR: `dotnet build` must still succeed on a
+       clean clone before anyone has run CMake. Milestone M0 is "both sides
+       build", and the two sides build independently. Tests that actually need
+       the DLL will fail loudly on their own, with a better message than a build
+       break would give.
+
+       The .pdb is copied when present so that native crashes during a test run
+       produce a readable stack instead of raw addresses.
+       ===================================================================== -->
+  <!-- The TargetFramework condition matters: a multi-targeting project runs
+       "Build" twice over, once in the OUTER pass that merely dispatches to each
+       framework and once per framework in the INNER builds. Only the inner
+       builds have an output directory, so without this guard the outer pass
+       fires the Copy with an empty destination and fails the build. -->
+  <Target Name="CopyGoopNativeLibrary" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+
+    <Warning Condition="!Exists('$(GoopNativeBinDir)goop.dll')"
+             Code="GOOP0001"
+             Text="Native goop.dll was not found at '$(GoopNativeBinDir)'. Managed code built fine, but any test that calls into the native library will fail with DllNotFoundException. Build the native side first: scripts\build.ps1 -Configuration $(Configuration)" />
+
+    <ItemGroup>
+      <GoopNativeArtifact Include="$(GoopNativeBinDir)goop.dll" Condition="Exists('$(GoopNativeBinDir)goop.dll')" />
+      <GoopNativeArtifact Include="$(GoopNativeBinDir)goop.pdb" Condition="Exists('$(GoopNativeBinDir)goop.pdb')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(GoopNativeArtifact)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="'@(GoopNativeArtifact)' != ''" />
+
+  </Target>
+
+</Project>

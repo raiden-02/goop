@@ -1,0 +1,76 @@
+# ===========================================================================
+# Goop - clang-format configuration for native/
+#
+# Microsoft style as the base, because this is a Windows/MSVC project and it is
+# what Visual Studio's built-in C++ formatter already approximates - so the
+# in-IDE experience and the command line agree.
+#
+# Run over the whole native tree with:
+#     clang-format -i native/src/*.cpp native/src/*.hpp native/include/goop/*.h native/tests/*.cpp
+#
+# clang-format ships with Visual Studio at:
+#     <VS>\VC\Tools\Llvm\bin\clang-format.exe
+# ===========================================================================
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+
+# Four spaces, no tabs. Matches .editorconfig.
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# 100 columns. Wider than the traditional 80 because SDF code is full of
+# multi-argument maths that reads worse when it is wrapped; narrower than 120
+# so two files still fit side by side for diffing.
+ColumnLimit: 100
+
+# Pointer and reference glued to the TYPE, not the name: `goop_shape* shape`,
+# `const Vec3& p`. The type is what `*` and `&` modify, and it keeps the
+# declarations in goop.h looking like the C they are.
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+# Microsoft style already breaks before braces (Allman), which matches the
+# surrounding C# in this repo. Spelled out rather than inherited so that a
+# clang-format version bump cannot quietly change it.
+BreakBeforeBraces: Allman
+
+# Never collapse a single-statement if onto one line; an unbraced one-liner is
+# where the next `goto fail` bug comes from.
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: Empty
+
+# Keep includes grouped and sorted, but do NOT let clang-format reorder across
+# groups: in a C header the include order can matter, and goop.h deliberately
+# pulls in the generated goop_export.h first.
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# Alignment that helps readability in tables of distance-function constants and
+# in long parameter lists.
+AlignAfterOpenBracket: Align
+AlignOperands: Align
+AlignTrailingComments: true
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# Keep comment blocks as written. The stub files in this repo are mostly prose
+# and reflowing them would wreck the deliberate line breaks.
+ReflowComments: false
+
+BinPackArguments: false
+BinPackParameters: false
+Cpp11BracedListStyle: true
+SpaceBeforeParens: ControlStatements
+SpacesBeforeTrailingComments: 1
+IndentCaseLabels: true
+NamespaceIndentation: None
+FixNamespaceComments: true
+EmptyLineBeforeAccessModifier: LogicalBlock
+SeparateDefinitionBlocks: Always
+InsertNewlineAtEOF: true

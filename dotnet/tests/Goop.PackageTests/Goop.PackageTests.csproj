@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Consumes Goop the way a STRANGER would: from a packed .nupkg, not from a
+       ProjectReference. See PackageConsumptionTests.cs for why that distinction
+       is the entire point of this project.
+
+       Note the absence of a ProjectReference to Goop. That is not an oversight -
+       adding one would defeat the purpose. -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
+  </ItemGroup>
+
+  <!-- TODO (M8): once `dotnet pack` produces Goop.0.1.0.nupkg into the local
+       feed, add the real reference and enable the source in nuget.config:
+
+         <PackageReference Include="Goop" Version="0.1.0" />
+
+       Pin the exact version rather than a range, so this project tests the
+       package that was just built and not whatever happens to be newest.
+
+       Also worth adding here at that point: the native DLL should arrive FROM
+       THE PACKAGE, so this project must NOT have the goop.dll copy target that
+       Goop.Tests and Goop.Gallery use. If a test here passes only because
+       someone copied the DLL in by hand, the packaging is still broken and this
+       project is lying. -->
+
+</Project>

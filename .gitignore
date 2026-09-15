@@ -1,0 +1,138 @@
+# ===========================================================================
+# Goop - .gitignore
+#
+# Nothing generated belongs in this repo. The two build systems (CMake and
+# MSBuild) between them produce a lot of it.
+# ===========================================================================
+
+# --- Goop's own build outputs ----------------------------------------------
+# The CMake build tree. Everything under it is regenerable from CMakeLists.txt,
+# including the FetchContent clone of Catch2 and goop.dll itself.
+build/
+build-*/
+
+# `dotnet pack` output and the local folder feed that Goop.PackageTests
+# restores from (milestone M8).
+artifacts/
+
+# Generated STL files from the gallery sample. These can be tens of megabytes
+# and are reproducible by running the sample, so they stay out of history.
+# Rendered SCREENSHOTS in gallery/ are committed - those are not regenerable.
+gallery/output/
+
+# --- .NET / MSBuild --------------------------------------------------------
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+[Ll]og/
+[Ll]ogs/
+
+# Test output
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
+
+# NuGet
+*.nupkg
+*.snupkg
+# Keep the checked-in nuget.config files; ignore local package caches.
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+# --- Visual Studio ---------------------------------------------------------
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.VC.db
+*.VC.VC.opendb
+*.vspscc
+*.vssscc
+*.psess
+*.vsp
+*.vspx
+*.sap
+*.svclog
+*.pidb
+*.opendb
+
+# Build intermediates
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.vspscc
+*_wpftmp.csproj
+*.log
+*.tlog
+*.idb
+*.exp
+*.lastbuildstate
+*.cache
+
+# --- CMake -----------------------------------------------------------------
+# Local preset overrides are per-developer by definition. CMakePresets.json
+# would be committed if we had one; CMakeUserPresets.json never is.
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+Testing/
+compile_commands.json
+_deps/
+
+# --- Editors and IDEs ------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+.cache/
+.clangd/
+
+# --- OS junk ---------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

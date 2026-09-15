@@ -1,0 +1,59 @@
+<Project>
+
+  <!-- ===================================================================
+       Settings shared by every .NET project in the repo (Goop, Goop.Tests,
+       Goop.PackageTests, Goop.Gallery). MSBuild picks this file up
+       automatically for any project underneath this directory.
+       =================================================================== -->
+
+  <PropertyGroup>
+    <!-- LangVersion=latest so that net48 is not stuck on C# 7.3.
+
+         IMPORTANT and easy to get wrong: this enables newer SYNTAX, not newer
+         RUNTIME APIs. On net48 you get nullable reference type annotations,
+         pattern matching, records and so on, because those are compiler
+         features. You do NOT get Span<T> overloads on BCL methods,
+         MemoryMarshal, System.HashCode, or anything else that has to exist in
+         the runtime. Code that needs those must be behind #if NET8_0_OR_GREATER
+         or reimplemented for net48. -->
+    <LangVersion>latest</LangVersion>
+
+    <!-- Nullable annotations on both target frameworks. On net48 the compiler
+         still honours them; only the attribute definitions differ. -->
+    <Nullable>enable</Nullable>
+
+    <!-- Warnings stay warnings. During active development a build that
+         finishes and reports its complaints is more useful than one that
+         refuses to run; this is the property to flip once the API settles. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- x64 is FORCED everywhere, and this is not a preference.
+
+         goop.dll is a 64-bit native library. A 32-bit process physically cannot
+         load a 64-bit DLL: the loader rejects it and the CLR surfaces that as
+         BadImageFormatException, which is a famously unhelpful message for what
+         is actually a bitness mismatch.
+
+         The trap is specific to .NET Framework. net48 executables default to
+         AnyCPU with Prefer32Bit=true, so on a 64-bit machine they launch as
+         32-bit processes and every P/Invoke into goop.dll fails at the first
+         call. Setting PlatformTarget=x64 and Prefer32Bit=false makes the
+         bitness explicit and matching. Goop.Gallery prints
+         Environment.Is64BitProcess on startup precisely so this is visible
+         rather than mysterious. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Where the CMake build drops goop.dll. Must stay in sync with the
+         CMAKE_RUNTIME_OUTPUT_DIRECTORY set in the top-level CMakeLists.txt,
+         which produces build/bin/<Config>/goop.dll. Multi-config generators
+         (Visual Studio) add the <Config> segment themselves.
+
+         Test and sample projects use this to copy the native DLL next to their
+         own output so that the default DLL search path finds it. -->
+    <GoopNativeBinDir>$(MSBuildThisFileDirectory)..\build\bin\$(Configuration)\</GoopNativeBinDir>
+  </PropertyGroup>
+
+</Project>
