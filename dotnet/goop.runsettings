@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Test run settings for Goop.
+
+  Select it in Visual Studio with:
+      Test > Configure Run Settings > Select Solution Wide runsettings File
+
+  From the command line, pass it with the "settings" option:
+      dotnet test dotnet\Goop.sln  (settings) dotnet\goop.runsettings
+  scripts\build.ps1 already does this.
+
+  (Note: XML comments cannot contain a double hyphen, which is why the CLI
+  option above is written in parentheses rather than spelled literally.)
+
+  WHY THIS FILE EXISTS: TargetPlatform.
+
+  VSTest decides the test host's bitness on its own, and the default is not
+  always x64. If it picks x86, every test that touches goop.dll dies with
+  BadImageFormatException, because a 32-bit host cannot load a 64-bit native
+  library. The managed projects already force PlatformTarget=x64, but that
+  governs the ASSEMBLIES, not the host process VSTest launches to run them.
+  Both have to agree, so it is pinned in both places.
+
+  This is the same class of bug as the Prefer32Bit trap in
+  Directory.Build.props, just one layer further out, and it is harder to spot
+  because the build is completely clean and only the test run fails.
+-->
+<RunSettings>
+
+  <RunConfiguration>
+    <!-- The whole point of the file. -->
+    <TargetPlatform>x64</TargetPlatform>
+
+    <!-- Run serially. Slower, but a native crash (access violation, heap
+         corruption) then takes down one host instead of racing several, and
+         the surviving output tells you which framework it was. Worth it in an
+         interop project. -->
+    <MaxCpuCount>1</MaxCpuCount>
+
+    <ResultsDirectory>.\TestResults</ResultsDirectory>
+  </RunConfiguration>
+
+  <!--
+    NATIVE DEBUGGING OF TESTS is not configurable here. It is a Visual Studio
+    setting, because VSTest owns the host process:
+
+        Test > Options > check "Enable native code debugging"
+
+    Turn it on, then "Debug Test" on an interop test steps into C++ exactly the
+    way the Gallery profile does. Turn it back off afterwards; it slows down
+    every test run, including pure-managed ones.
+
+    If you would rather not fight the test host at all, reproduce the failing
+    call in Goop.Gallery and debug that instead. Its launchSettings.json
+    already has native debugging turned on.
+  -->
+
+</RunSettings>

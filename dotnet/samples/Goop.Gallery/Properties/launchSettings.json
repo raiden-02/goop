@@ -1,0 +1,35 @@
+{
+  "//": [
+    "MIXED-MODE (managed + native) DEBUGGING.",
+    "",
+    "'nativeDebugging': true loads BOTH the managed and the native debug engines",
+    "into the session. Without it, a breakpoint in native/src/api.cpp never binds",
+    "and stepping into a P/Invoke just steps over it - which looks exactly like",
+    "the native code not being called at all.",
+    "",
+    "This is the single most useful setting in the repo while writing interop.",
+    "With it on you can set a breakpoint in C# at the DllImport call site, step",
+    "in, and land in the C++ function with a real call stack across the boundary.",
+    "",
+    "It works because CopyGoopNativeLibrary drops goop.pdb next to goop.dll in",
+    "the output directory. Delete the pdb and you get addresses instead of lines.",
+    "",
+    "Cost: mixed-mode sessions start noticeably slower. That is the trade.",
+    "",
+    "For the TEST projects this file does not apply - VSTest spawns its own host",
+    "process. See dotnet/goop.runsettings and the note in README.md."
+  ],
+
+  "profiles": {
+    "Goop.Gallery": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    },
+
+    "Goop.Gallery (managed only)": {
+      "//": "Faster startup for when you are not debugging across the boundary.",
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}

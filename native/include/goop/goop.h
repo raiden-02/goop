@@ -1,50 +1,51 @@
-/* =========================================================================
- * goop.h - the entire public surface of goop.dll.
- *
- * This is the ONLY header a consumer ever sees, and the C# side mirrors it
- * one declaration at a time. Everything below the ABI rules is a TODO list;
- * declarations are added as each milestone lands.
- *
- * -------------------------------------------------------------------------
- * ABI RULES - these are not style preferences, they are load-bearing
- * -------------------------------------------------------------------------
- *
- *  1. C types only. No C++ in this header: no class, no std::, no templates,
- *     no references, no default arguments, no overloads, no bool from
- *     <stdbool.h> in struct layouts. A C# P/Invoke signature has to be able
- *     to describe every parameter exactly.
- *
- *  2. No exceptions cross this boundary. Ever. A C++ exception unwinding into
- *     the CLR is undefined behaviour, not an error message. api.cpp wraps every
- *     entry point in a catch-all and returns a goop_status instead.
- *
- *  3. Fixed-size integer types from <stdint.h> (int32_t, uint64_t, ...) for
- *     anything that crosses the boundary. Never int, long, or size_t in a
- *     struct field - their widths are a property of the compiler, not the ABI.
- *     (size_t is acceptable for local C-side counts; prefer explicit widths.)
- *
- *  4. Every exported symbol is prefixed goop_ - functions, structs, enums, and
- *     typedefs alike. The DLL shares a global symbol namespace with whatever
- *     else the host process loaded.
- *
- *  5. Output buffers are allocated by the CALLER, filled by the callee. The
- *     pattern is always two calls: ask for the count, allocate, then copy out.
- *     goop never hands back a pointer to memory the caller must free, because
- *     "which allocator owns this?" is the classic interop crash.
- *
- *  6. Callbacks must not throw and must not unwind. A progress callback that
- *     lets a managed exception escape will tear down the process. The managed
- *     side catches inside the delegate; the native side treats the callback as
- *     noexcept and only reads its return value.
- *
- *  7. Handles are opaque. goop_shape and goop_mesh are incomplete struct types
- *     by design: the layout is private, may change freely, and the size is
- *     never part of the contract. Consumers hold pointers and nothing else.
- *
- *  8. Struct layout is frozen once shipped. Fields are appended, never
- *     inserted or reordered, and GOOP_ABI_VERSION goes up when that promise
- *     has to be broken.
- * ========================================================================= */
+/// @file goop.h
+/// @brief The entire public surface of goop.dll.
+///
+/// This is the ONLY header a consumer ever sees, and the C# side mirrors it one
+/// declaration at a time. Everything below the ABI rules is a TODO list;
+/// declarations are added as each milestone lands.
+///
+/// Every declaration in this header carries a Doxygen `///` comment. That is a
+/// house rule, not decoration: this file IS the documentation for anyone
+/// binding to the library from another language, and it is the only thing they
+/// can read.
+///
+/// @par ABI rules
+/// These are not style preferences. They are load-bearing.
+///
+/// 1. **C types only.** No C++ in this header: no class, no `std::`, no
+///    templates, no references, no default arguments, no overloads. A C#
+///    P/Invoke signature has to be able to describe every parameter exactly.
+///
+/// 2. **No exceptions cross this boundary. Ever.** A C++ exception unwinding
+///    into the CLR is undefined behaviour, not an error message. api.cpp wraps
+///    every entry point in a catch-all and returns a ::goop_status instead.
+///
+/// 3. **Fixed-size integer types** from `<stdint.h>` for anything that crosses
+///    the boundary. Never `int`, `long`, or `size_t` in a struct field - their
+///    widths are a property of the compiler, not of the ABI.
+///
+/// 4. **Every exported symbol is prefixed `goop_`** - functions, structs, enums
+///    and typedefs alike. The DLL shares a global symbol namespace with
+///    whatever else the host process has loaded.
+///
+/// 5. **Output buffers are allocated by the CALLER**, filled by the callee. The
+///    pattern is always two calls: ask for the count, allocate, then copy out.
+///    goop never hands back a pointer the caller must free, because "which
+///    allocator owns this?" is the classic interop crash.
+///
+/// 6. **Callbacks must not throw and must not unwind.** A progress callback
+///    that lets a managed exception escape will tear down the process. The
+///    managed side catches inside the delegate; the native side treats the
+///    callback as noexcept and only reads its return value.
+///
+/// 7. **Handles are opaque.** ::goop_shape and ::goop_mesh are incomplete
+///    struct types by design: the layout is private, may change freely, and the
+///    size is never part of the contract.
+///
+/// 8. **Struct layout is frozen once shipped.** Fields are appended, never
+///    inserted or reordered, and ::GOOP_ABI_VERSION goes up when that promise
+///    has to be broken.
 
 #ifndef GOOP_GOOP_H
 #define GOOP_GOOP_H
@@ -54,17 +55,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Bumped whenever the ABI changes in a way that breaks existing callers.
- * The managed side reads goop_get_version() at startup and refuses to run
- * against a DLL it does not recognise - see milestone M9. */
+/// @brief Binary-compatibility version of this ABI.
+///
+/// Bumped whenever the ABI changes in a way that breaks existing callers. The
+/// managed side reads goop_get_version() at startup and refuses to run against
+/// a DLL it does not recognise - see milestone M9.
 #define GOOP_ABI_VERSION 1
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-/* -------------------------------------------------------------------------
+    /* -------------------------------------------------------------------------
  * TODO: everything below this line, added milestone by milestone.
+ * Each declaration gets its own /// block: @brief, @param for every argument
+ * (including which side owns it), @return, and a note on thread safety where
+ * it is not obvious.
  * -------------------------------------------------------------------------
  *
  * --- basic value types ---------------------------------------------------
@@ -81,7 +88,8 @@ extern "C" {
  *       written out explicitly, never renumbered.
  *
  * TODO: goop_get_version - returns GOOP_ABI_VERSION as compiled into the DLL.
- *       The one function whose signature can never change.
+ *       The one function whose signature can never change. Start here: it is
+ *       the cheapest possible proof that P/Invoke is finding the DLL at all.
  *
  * --- shapes: opaque, reference counted -----------------------------------
  *

@@ -7,8 +7,8 @@
        Catch2 suite over in native/tests. -->
 
   <PropertyGroup>
-    <!-- Both frameworks, because net48 is where the interop mistakes surface. -->
-    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <!-- All three, because net48 is where the interop mistakes surface. -->
+    <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>

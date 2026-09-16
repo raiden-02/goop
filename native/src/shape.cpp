@@ -7,7 +7,8 @@
 
 #include "shape.hpp"
 
-namespace goop {
+namespace goop
+{
 
 // TODO: Vec3 operations - or keep them inline in the header if they turn out to
 //       be small enough that call overhead dominates the arithmetic.

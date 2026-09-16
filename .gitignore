@@ -18,7 +18,12 @@ artifacts/
 # Generated STL files from the gallery sample. These can be tens of megabytes
 # and are reproducible by running the sample, so they stay out of history.
 # Rendered SCREENSHOTS in gallery/ are committed - those are not regenerable.
-gallery/output/
+#
+# Note the trailing /* rather than /: ignoring the DIRECTORY would stop git
+# descending into it at all, and the .gitkeep negation below would never be
+# evaluated. Ignoring its CONTENTS leaves the folder itself trackable.
+gallery/output/*
+!gallery/output/.gitkeep
 
 # --- .NET / MSBuild --------------------------------------------------------
 bin/

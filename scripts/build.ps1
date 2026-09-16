@@ -43,9 +43,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot  = Split-Path -Parent $PSScriptRoot
-$BuildDir  = Join-Path $RepoRoot 'build'
-$Solution  = Join-Path $RepoRoot 'dotnet\Goop.sln'
+$RepoRoot    = Split-Path -Parent $PSScriptRoot
+$BuildDir    = Join-Path $RepoRoot 'build'
+$Solution    = Join-Path $RepoRoot 'dotnet\Goop.sln'
+# Pins the VSTest host to x64. Without it VSTest may launch a 32-bit host,
+# which cannot load the 64-bit goop.dll - see the comment in the file itself.
+$RunSettings = Join-Path $RepoRoot 'dotnet\goop.runsettings'
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -223,7 +226,7 @@ reports no tests at all, the build was configured with GOOP_BUILD_TESTS=OFF.
 # 4. dotnet build
 # ---------------------------------------------------------------------------
 
-Write-Step "4/5  dotnet build ($Configuration, net48 + net8.0)"
+Write-Step "4/5  dotnet build ($Configuration, net48 + net8.0 + net10.0)"
 
 & dotnet build $Solution --configuration $Configuration --nologo
 Assert-LastExitCode -Step "dotnet build ($Configuration)" -Hint @"
@@ -244,9 +247,9 @@ if ($SkipTests)
 }
 else
 {
-    Write-Step "5/5  dotnet test ($Configuration, net48 + net8.0)"
+    Write-Step "5/5  dotnet test ($Configuration, net48 + net8.0 + net10.0)"
 
-    & dotnet test $Solution --configuration $Configuration --no-build --nologo
+    & dotnet test $Solution --configuration $Configuration --no-build --nologo --settings $RunSettings
     Assert-LastExitCode -Step "dotnet test ($Configuration)" -Hint @"
 The .NET tests failed. A DllNotFoundException for 'goop' means the native DLL
 did not get copied next to the test binaries - check the CopyGoopNativeLibrary

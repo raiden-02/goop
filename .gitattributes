@@ -1,0 +1,60 @@
+# ===========================================================================
+# Goop - .gitattributes
+#
+# Pins line-ending behaviour in the repo instead of leaving it to each
+# developer's core.autocrlf. Without this, whether a clone gets LF or CRLF
+# depends on a global git setting, and a single commit from a differently
+# configured machine rewrites every line of every file.
+#
+# The repo stores LF. Working trees on Windows get CRLF, which is what
+# .editorconfig declares and what MSVC and MSBuild emit.
+# ===========================================================================
+
+# Default: let git decide what is text, normalise it to LF in the repo, and
+# check it out CRLF on Windows.
+* text=auto eol=crlf
+
+# --- explicitly text -------------------------------------------------------
+*.c        text eol=crlf
+*.cpp      text eol=crlf
+*.h        text eol=crlf
+*.hpp      text eol=crlf
+*.cs       text eol=crlf
+*.csproj   text eol=crlf
+*.props    text eol=crlf
+*.targets  text eol=crlf
+*.sln      text eol=crlf
+*.slnx     text eol=crlf
+*.json     text eol=crlf
+*.xml      text eol=crlf
+*.config   text eol=crlf
+*.runsettings text eol=crlf
+*.md       text eol=crlf
+*.txt      text eol=crlf
+*.cmake    text eol=crlf
+CMakeLists.txt text eol=crlf
+
+# PowerShell must be CRLF. A .ps1 with bare LF line endings can fail to parse
+# in Windows PowerShell 5.1, which is exactly what scripts/build.ps1 runs on.
+*.ps1      text eol=crlf
+
+# Shell scripts must be LF even on Windows, or the shebang line carries a
+# stray \r and the interpreter is reported as not found.
+*.sh       text eol=lf
+
+# --- binary: never touch ---------------------------------------------------
+*.stl      binary
+*.png      binary
+*.jpg      binary
+*.gif      binary
+*.dll      binary
+*.lib      binary
+*.pdb      binary
+*.exe      binary
+*.nupkg    binary
+
+# --- diff hints ------------------------------------------------------------
+*.cs       diff=csharp
+*.cpp      diff=cpp
+*.hpp      diff=cpp
+*.h        diff=cpp

@@ -1,0 +1,2 @@
+Keeps gallery/output/ present in a fresh clone. Generated STL files land here
+and are git-ignored; only this placeholder is tracked.

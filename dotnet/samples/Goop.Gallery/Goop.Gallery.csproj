@@ -6,7 +6,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
     <RootNamespace>Goop.Gallery</RootNamespace>
     <AssemblyName>Goop.Gallery</AssemblyName>
     <IsPackable>false</IsPackable>

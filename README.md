@@ -45,14 +45,15 @@ in `native/src/shape.cpp`.
 |---|---|
 | **Visual Studio 2022 or later** | With the **Desktop development with C++** workload. The generator is detected by CMake, not hardcoded, so any recent version works. |
 | **CMake 3.20+** | Either installed standalone and on `PATH`, or the **C++ CMake tools for Windows** component inside Visual Studio — `scripts/build.ps1` finds either. |
-| **.NET SDK 8.0 or newer** | Builds both target frameworks. A newer SDK (9 or 10) is fine and will still build `net8.0`. |
+| **.NET SDK 10** | Builds all three target frameworks. The `net8.0` reference pack and runtime must also be present (they ship with the 8.0 runtime install). |
 | **.NET Framework 4.8 Developer Pack** | Required to *build* the `net48` target — the runtime alone is not enough, MSBuild needs the reference assemblies. <https://dotnet.microsoft.com/download/dotnet-framework/net48> |
 | **Windows, x64** | The only supported configuration. `goop.dll` is 64-bit and every managed project is pinned to x64 so it can load. |
+| **.NET Framework 4.8 targeting pack** | Included with the Developer Pack above. |
 
 ## Build
 
-One command does everything — configure, build, both test suites, both target
-frameworks:
+One command does everything — configure, build, both test suites, all three
+target frameworks:
 
 ```powershell
 .\scripts\build.ps1
@@ -67,13 +68,20 @@ The same thing by hand, if you want to see the pieces:
 
 ```powershell
 # native: configure, build, test
-cmake -S . -B build -A x64
-cmake --build build --config Debug
-ctest --test-dir build --build-config Debug --output-on-failure
+cmake --preset windows-x64
+cmake --build --preset debug
+ctest --preset debug
 
-# managed: build and test both net48 and net8.0
+# managed: build and test net48, net8.0 and net10.0
 dotnet build dotnet\Goop.sln --configuration Debug
-dotnet test  dotnet\Goop.sln --configuration Debug
+dotnet test  dotnet\Goop.sln --configuration Debug --settings dotnet\goop.runsettings
+```
+
+Formatting:
+
+```powershell
+.\scripts\format.ps1          # rewrite native sources
+.\scripts\format.ps1 -Check   # report drift, non-zero exit
 ```
 
 `goop.dll` lands at `build/bin/<Config>/goop.dll`. The test and sample projects
@@ -84,8 +92,25 @@ the MSBuild graph, so the copy has to be explicit.
 Run the sample:
 
 ```powershell
-dotnet run --project dotnet\samples\Goop.Gallery --framework net8.0
+dotnet run --project dotnet\samples\Goop.Gallery --framework net10.0
 ```
+
+### Debugging across the boundary
+
+Stepping from C# into C++ needs the native debug engine loaded alongside the
+managed one.
+
+- **Gallery** — already configured. `dotnet/samples/Goop.Gallery/Properties/launchSettings.json`
+  sets `nativeDebugging: true`, so a breakpoint in `native/src/api.cpp` binds and
+  F11 at a P/Invoke call site steps into C++.
+- **Tests** — VSTest owns its host process, so this is a Visual Studio setting:
+  **Test > Options > Enable native code debugging**. Turn it off afterwards; it
+  slows every run.
+- Open `build/goop.slnx` for native work (CMake generates it) and
+  `dotnet/Goop.sln` for managed.
+
+Both rely on `goop.pdb` sitting next to `goop.dll`, which the copy target
+handles.
 
 ## Architecture
 

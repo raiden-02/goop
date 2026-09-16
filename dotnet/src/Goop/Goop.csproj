@@ -5,12 +5,13 @@
        does not build goop.dll - it only knows how to call it. -->
 
   <PropertyGroup>
-    <!-- Two target frameworks on purpose. net8.0 is where modern interop lives
-         (NativeLibrary, better Span support); net48 is the one that catches the
-         interop mistakes, because .NET Framework is stricter about marshalling,
-         defaults to 32-bit, and has none of the newer convenience APIs. If the
-         library works on both, the interop is probably actually correct. -->
-    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <!-- Three target frameworks on purpose, and a change has to pass all three.
+         net8.0 and net10.0 are where modern interop lives (NativeLibrary, real
+         Span support); net48 is the one that catches the mistakes, because
+         .NET Framework is stricter about marshalling, defaults to 32-bit, and
+         has none of the newer convenience APIs. If the library works on all
+         three, the interop is probably actually correct. -->
+    <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
 
     <RootNamespace>Goop</RootNamespace>
     <AssemblyName>Goop</AssemblyName>
@@ -39,6 +40,27 @@
          SafeHandles) so interop can be tested directly instead of only through
          the public fluent surface. -->
     <InternalsVisibleTo Include="Goop.Tests" />
+  </ItemGroup>
+
+  <!-- net48 ONLY: polyfills for types the modern frameworks have built in.
+
+       Span<T> / ReadOnlySpan<T> / Memory<T> do not exist in .NET Framework 4.8,
+       and LangVersion=latest does NOT conjure them up - that setting unlocks
+       compiler syntax, never runtime APIs. Without these two packages, a
+       batch-evaluation signature like
+
+           Evaluate(ReadOnlySpan<Vec3> points, Span<double> distances)
+
+       compiles on net8.0/net10.0 and fails on net48, which is exactly the
+       three-framework trap this project exists to stay out of.
+
+       Note these are REFERENCE assemblies bridging to the same underlying
+       memory, so pinning a Span and handing its pointer to native code behaves
+       the same on all three. On net8.0+ the SDK supplies these inbox and adding
+       the packages would downgrade them, hence the condition. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="System.Memory" Version="4.6.3" />
+    <PackageReference Include="System.Buffers" Version="4.6.1" />
   </ItemGroup>
 
   <!-- =====================================================================

@@ -1,0 +1,58 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "windows-x64",
+      "displayName": "Windows x64 (Visual Studio)",
+      "description": "Default configure. No generator is named on purpose: CMake picks the newest installed Visual Studio, so this preset keeps working across VS versions. Only the architecture is pinned.",
+      "binaryDir": "${sourceDir}/build",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "cacheVariables": {
+        "GOOP_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "windows-x64-notests",
+      "inherits": "windows-x64",
+      "displayName": "Windows x64, no tests",
+      "description": "Skips the Catch2 FetchContent, which is the slow part of a cold configure. Useful offline.",
+      "cacheVariables": {
+        "GOOP_BUILD_TESTS": "OFF"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "windows-x64",
+      "configuration": "Debug",
+      "displayName": "Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "windows-x64",
+      "configuration": "Release",
+      "displayName": "Release"
+    }
+  ],
+
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "windows-x64",
+      "configuration": "Debug",
+      "displayName": "Debug tests",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "release",
+      "configurePreset": "windows-x64",
+      "configuration": "Release",
+      "displayName": "Release tests",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

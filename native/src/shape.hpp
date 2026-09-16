@@ -22,7 +22,8 @@
 #ifndef GOOP_SHAPE_HPP
 #define GOOP_SHAPE_HPP
 
-namespace goop {
+namespace goop
+{
 
 // TODO: a Vec3 value type - three doubles, with the handful of operations the
 //       distance functions actually need: +, -, scalar *, dot, length, abs,
