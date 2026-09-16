@@ -67,6 +67,23 @@ extern "C"
 {
 #endif
 
+/// @brief Result of every fallible goop_ call. 
+typedef enum goop_status
+{
+    GOOP_OK                     = 0,
+    GOOP_ERROR_INVALID_ARGUMENT = 1,
+    GOOP_ERROR_NULL_HANDLE      = 2,
+    GOOP_ERROR_OUT_OF_MEMORY    = 3,
+    GOOP_ERROR_CANCELLED        = 4,
+    GOOP_ERROR_INTERNAL         = 5
+} goop_status;
+
+/// @brief Returns the ABI version compiled into this DLL.
+/// @return GOOP_ABI_VERSION. Cannot fail, so it returns the value
+///         directly, never a status code.
+GOOP_API int32_t goop_get_version(void);
+
+
     /* -------------------------------------------------------------------------
  * TODO: everything below this line, added milestone by milestone.
  * Each declaration gets its own /// block: @brief, @param for every argument

@@ -45,3 +45,8 @@
 // TODO: the extern "C" GOOP_API definitions mirroring goop.h, one milestone at
 //       a time. Start with goop_get_version - it is the cheapest possible proof
 //       that P/Invoke is finding the DLL at all.
+
+extern "C" GOOP_API int32_t goop_get_version(void)
+{
+    return GOOP_ABI_VERSION;
+}
