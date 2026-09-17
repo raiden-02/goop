@@ -86,7 +86,7 @@ target_include_directories(goop
 )
 
 set_target_properties(goop PROPERTIES
-    OUTPUT_NAME "goop"            # -> goop.dll (no lib prefix on Windows)
+    OUTPUT_NAME "goop_native"            # -> goop.dll (no lib prefix on Windows)
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF

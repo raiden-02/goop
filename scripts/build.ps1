@@ -21,7 +21,7 @@
 .PARAMETER Configuration
     Debug (default) or Release. Used for both the native and the managed build,
     which matters: dotnet/Directory.Build.props derives GoopNativeBinDir from
-    $(Configuration), so a Release managed build looks for a Release goop.dll.
+    $(Configuration), so a Release managed build looks for a Release goop_native.dll.
 
 .PARAMETER SkipTests
     Skip both test steps (ctest and dotnet test). Builds only.
@@ -47,7 +47,7 @@ $RepoRoot    = Split-Path -Parent $PSScriptRoot
 $BuildDir    = Join-Path $RepoRoot 'build'
 $Solution    = Join-Path $RepoRoot 'dotnet\Goop.sln'
 # Pins the VSTest host to x64. Without it VSTest may launch a 32-bit host,
-# which cannot load the 64-bit goop.dll - see the comment in the file itself.
+# which cannot load the 64-bit goop_native.dll - see the comment in the file itself.
 $RunSettings = Join-Path $RepoRoot 'dotnet\goop.runsettings'
 
 # ---------------------------------------------------------------------------
@@ -188,15 +188,15 @@ Assert-LastExitCode -Step "cmake --build ($Configuration)" -Hint @"
 The native build failed. The compiler output above names the file and line.
 "@
 
-$nativeDll = Join-Path $BuildDir "bin\$Configuration\goop.dll"
+$nativeDll = Join-Path $BuildDir "bin\$Configuration\goop_native.dll"
 if (Test-Path $nativeDll)
 {
-    Write-Host "     goop.dll -> $nativeDll" -ForegroundColor DarkGray
+    Write-Host "     goop_native.dll -> $nativeDll" -ForegroundColor DarkGray
 }
 else
 {
     Stop-WithFailure -Step "cmake --build ($Configuration)" -Hint @"
-The build reported success but goop.dll is not at:
+The build reported success but goop_native.dll is not at:
   $nativeDll
 Check CMAKE_RUNTIME_OUTPUT_DIRECTORY in the top-level CMakeLists.txt - the
 managed projects derive GoopNativeBinDir from exactly this path.
@@ -253,7 +253,7 @@ else
     Assert-LastExitCode -Step "dotnet test ($Configuration)" -Hint @"
 The .NET tests failed. A DllNotFoundException for 'goop' means the native DLL
 did not get copied next to the test binaries - check the CopyGoopNativeLibrary
-target in the test project and that goop.dll exists at:
+target in the test project and that goop_native.dll exists at:
   $nativeDll
 A BadImageFormatException means the test process is 32-bit; check PlatformTarget
 and Prefer32Bit in dotnet/Directory.Build.props.

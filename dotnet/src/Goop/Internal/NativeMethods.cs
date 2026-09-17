@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Goop.Internal
 {
     // ======================================================================
@@ -20,7 +22,7 @@ namespace Goop.Internal
         /// hence the copy target in the test and sample projects that drops
         /// goop.dll next to the managed output.
         /// </remarks>
-        internal const string LibraryName = "goop";
+        internal const string LibraryName = "goop_native";
 
         // TODO: one [DllImport(LibraryName)] extern per function in goop.h, added
         //       milestone by milestone. Conventions to settle before the first
@@ -54,5 +56,14 @@ namespace Goop.Internal
         //       net48, so the generator is simply not available there. One set of
         //       DllImports shared by both target frameworks is better than two
         //       divergent interop layers behind #if.
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_get_version();
+
     }
 }

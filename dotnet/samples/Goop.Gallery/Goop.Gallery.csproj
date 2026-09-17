@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <!-- Same native DLL copy as Goop.Tests, for the same reason: the OS loader
-       resolves "goop.dll" starting from the directory of the running
+       resolves "goop_native.dll" starting from the directory of the running
        executable, and CMake's output is outside the MSBuild graph entirely.
        Deliberately duplicated rather than factored into a shared .targets file,
        so that each project states its own dependency on the native build where
@@ -32,12 +32,12 @@
        fires the Copy with an empty destination and fails the build. -->
   <Target Name="CopyGoopNativeLibrary" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
 
-    <Warning Condition="!Exists('$(GoopNativeBinDir)goop.dll')"
+    <Warning Condition="!Exists('$(GoopNativeBinDir)goop_native.dll')"
              Code="GOOP0001"
-             Text="Native goop.dll was not found at '$(GoopNativeBinDir)'. The sample will build but will throw DllNotFoundException as soon as it touches a shape. Build the native side first: scripts\build.ps1 -Configuration $(Configuration)" />
+             Text="Native goop_native.dll was not found at '$(GoopNativeBinDir)'. The sample will build but will throw DllNotFoundException as soon as it touches a shape. Build the native side first: scripts\build.ps1 -Configuration $(Configuration)" />
 
     <ItemGroup>
-      <GoopNativeArtifact Include="$(GoopNativeBinDir)goop.dll" Condition="Exists('$(GoopNativeBinDir)goop.dll')" />
+      <GoopNativeArtifact Include="$(GoopNativeBinDir)goop_native.dll" Condition="Exists('$(GoopNativeBinDir)goop_native.dll')" />
       <GoopNativeArtifact Include="$(GoopNativeBinDir)goop.pdb" Condition="Exists('$(GoopNativeBinDir)goop.pdb')" />
     </ItemGroup>
 

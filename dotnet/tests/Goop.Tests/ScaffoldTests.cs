@@ -1,3 +1,5 @@
+using System.Runtime;
+using Goop.Internal;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Goop.Tests
@@ -54,5 +56,11 @@ namespace Goop.Tests
         //       progress callback during a long mesh. Plus: cancellation raises
         //       OperationCanceledException, and progress fractions are monotonic
         //       and end at 1.0.
+
+        [TestMethod]
+        public void NativeAbiVersionMatchesHeader()
+        {
+            Assert.AreEqual(1, NativeMethods.goop_get_version());
+        }
     }
 }
