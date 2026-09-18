@@ -2,7 +2,7 @@
 # Goop native build - three targets, and the split between them is the point.
 #
 #   goop_core        STATIC  the real C++17 implementation (SDF graph, mesher)
-#   goop             SHARED  goop.dll - nothing but the extern "C" ABI shim
+#   goop             SHARED  goop_native.dll - nothing but the extern "C" ABI shim
 #   goop_core_tests  EXE     Catch2 tests that link the static core directly
 #
 # WHY IS THE CORE A SEPARATE STATIC LIBRARY?
@@ -24,7 +24,7 @@
 #   Keeping them apart also means api.cpp stays tiny and auditable: it is the
 #   ONLY file allowed to contain extern "C", exception-to-status-code
 #   translation, and handle lifetime management. If a symbol is exported from
-#   goop.dll, it was written in api.cpp. Nothing else can leak out, which is
+#   goop_native.dll, it was written in api.cpp. Nothing else can leak out, which
 #   enforced by CXX_VISIBILITY_PRESET hidden plus the generated GOOP_API macro.
 #
 # MSVC RUNTIME: we intentionally use the DEFAULT dynamic CRT (/MD, /MDd) rather
@@ -66,7 +66,7 @@ set_target_properties(goop_core PROPERTIES
 target_compile_options(goop_core PRIVATE ${GOOP_WARNING_FLAGS})
 
 # ---------------------------------------------------------------------------
-# 2. goop - the shared library / C ABI surface (goop.dll)
+# 2. goop - the shared library / C ABI surface (goop_native.dll)
 # ---------------------------------------------------------------------------
 add_library(goop SHARED
     src/api.cpp
@@ -86,7 +86,11 @@ target_include_directories(goop
 )
 
 set_target_properties(goop PROPERTIES
-    OUTPUT_NAME "goop_native"            # -> goop.dll (no lib prefix on Windows)
+    # -> goop_native.dll (no lib prefix on Windows). NOT "goop": Windows
+    # filenames are case-insensitive, so goop.dll would collide with - and
+    # silently overwrite - the managed Goop.dll in any output directory that
+    # holds both. The CMake TARGET is still called goop; only the file differs.
+    OUTPUT_NAME "goop_native"
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
@@ -128,7 +132,7 @@ if(GOOP_BUILD_TESTS)
         tests/test_core.cpp
     )
 
-    # Tests link the STATIC core, not goop.dll - see the comment at the top.
+    # Tests link the STATIC core, not goop_native.dll - see the top comment.
     target_link_libraries(goop_core_tests PRIVATE
         goop_core
         Catch2::Catch2WithMain

@@ -59,7 +59,7 @@
 
     <ItemGroup>
       <GoopNativeArtifact Include="$(GoopNativeBinDir)goop_native.dll" Condition="Exists('$(GoopNativeBinDir)goop_native.dll')" />
-      <GoopNativeArtifact Include="$(GoopNativeBinDir)goop.pdb" Condition="Exists('$(GoopNativeBinDir)goop.pdb')" />
+      <GoopNativeArtifact Include="$(GoopNativeBinDir)goop_native.pdb" Condition="Exists('$(GoopNativeBinDir)goop_native.pdb')" />
     </ItemGroup>
 
     <Copy SourceFiles="@(GoopNativeArtifact)"

@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Goop.Internal
 {
     // ======================================================================
-    // NativeMethods - every P/Invoke into goop.dll, and nothing else.
+    // NativeMethods - every P/Invoke into goop_native.dll, and nothing else.
     //
     // Internal by design: the raw ABI is not part of the public surface of this
     // assembly. Goop.Tests can see it through InternalsVisibleTo so the interop
@@ -20,7 +20,7 @@ namespace Goop.Internal
         /// platform's own suffix and searches the standard probing paths, which
         /// on Windows starts with the directory of the executing assembly -
         /// hence the copy target in the test and sample projects that drops
-        /// goop.dll next to the managed output.
+        /// goop_native.dll next to the managed output.
         /// </remarks>
         internal const string LibraryName = "goop_native";
 
