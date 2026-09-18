@@ -1,4 +1,5 @@
 using System.Runtime;
+using System.Runtime.InteropServices;
 using Goop.Internal;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -61,6 +62,17 @@ namespace Goop.Tests
         public void NativeAbiVersionMatchesHeader()
         {
             Assert.AreEqual(1, NativeMethods.goop_get_version());
+        }
+
+        [TestMethod]
+        public void Vec3LayoutMatchesNative()
+        {
+            Assert.AreEqual(24, Marshal.SizeOf<Vec3>());          // managed view
+            Assert.AreEqual(24, NativeMethods.goop_vec3_size());  // native view
+
+            Assert.AreEqual(0,  Marshal.OffsetOf<Vec3>(nameof(Vec3.X)).ToInt32());
+            Assert.AreEqual(8,  Marshal.OffsetOf<Vec3>(nameof(Vec3.Y)).ToInt32());
+            Assert.AreEqual(16, Marshal.OffsetOf<Vec3>(nameof(Vec3.Z)).ToInt32());
         }
     }
 }

@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Goop
 {
     // ======================================================================
@@ -44,4 +46,31 @@ namespace Goop
     // TODO: once the struct exists, add a test asserting
     //       Marshal.SizeOf<Vec3>() == 24. It is a one-line test that catches a
     //       whole class of layout mistakes immediately.
+
+    /// <summary>
+    /// A point or vector in 3D space. Three <c>double</c> fields, in the same
+    /// order and size as <c>goop_vec3</c> in the native header, so a value can
+    /// be passed to the DLL with no conversion.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public readonly struct Vec3
+    {
+        /// <summary>The X coordinate, in the same units as the native struct.</summary>
+        public readonly double X;
+
+        /// <summary>The Y coordinate, in the same units as the native struct.</summary>
+        public readonly double Y;
+
+        /// <summary>The Z coordinate, in the same units as the native struct.</summary>
+        public readonly double Z;
+
+        /// <summary>Creates a vector from three coordinates.</summary>
+        /// <param name="x">The X coordinate.</param>
+        /// <param name="y">The Y coordinate.</param>
+        /// <param name="z">The Z coordinate.</param>
+        public Vec3(double x, double y, double z) { X = x; Y = y; Z = z; }
+
+        /// <summary>Returns the vector as <c>(X, Y, Z)</c>.</summary>
+        public override string ToString() => $"({X}, {Y}, {Z})";
+    }
 }

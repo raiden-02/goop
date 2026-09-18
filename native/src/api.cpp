@@ -50,3 +50,10 @@ extern "C" GOOP_API int32_t goop_get_version(void)
 {
     return GOOP_ABI_VERSION;
 }
+
+static_assert(sizeof(goop_vec3) == 24, "goop_vec3 is not 24 bytes");
+
+extern "C" GOOP_API int32_t goop_vec3_size(void)
+{
+    return (int32_t)sizeof(goop_vec3);
+}

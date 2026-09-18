@@ -67,6 +67,25 @@ extern "C"
 {
 #endif
 
+/// @brief A point or vector in 3D space. Plain, blittable, POD.
+///
+/// Double precision throughout: distance fields accumulate error quickly and
+/// float grids show it as visible banding near thin features.
+///
+/// Layout is part of the ABI (rule 8). The managed Vec3 mirrors it exactly, and
+/// goop_vec3_size() exists so a test can prove that rather than trust it.
+typedef struct goop_vec3
+{
+    double x;
+    double y;
+    double z;
+} goop_vec3;
+
+/// @brief Returns sizeof(goop_vec3) as the native compiler computed it.
+/// @return The size in bytes. Expected to be 24.
+GOOP_API int32_t goop_vec3_size(void);
+
+
 /// @brief Result of every fallible goop_ call. 
 typedef enum goop_status
 {

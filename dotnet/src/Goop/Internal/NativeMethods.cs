@@ -65,5 +65,12 @@ namespace Goop.Internal
         )]
         internal static extern int goop_get_version();
 
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_vec3_size();
     }
 }
