@@ -22,6 +22,8 @@
 #ifndef GOOP_SHAPE_HPP
 #define GOOP_SHAPE_HPP
 
+#include <atomic>
+
 namespace goop
 {
 
@@ -60,6 +62,38 @@ namespace goop
 
 // TODO: the batch evaluation entry point behind goop_shape_eval_batch.
 
-} // namespace goop
+struct Vec3 {
+    double x, y, z;
+};
+
+class Shape {
+public:
+    virtual ~Shape() = default;
+    // = 0 means that the function is pure virtual and must be implemented by the derived class.
+    virtual double eval(const Vec3& p) const = 0;
+    void retain() noexcept { ++m_refCount; }
+    void release() noexcept { if (--m_refCount == 0) delete this; }
+
+protected:
+    Shape() = default;
+
+private:
+    // std::atomic is used to ensure that the reference count is updated atomically i.e
+    // when multiple threads are accessing the same Shape object.
+    std::atomic<int> m_refCount{1};
+};
+
+
+class Sphere final : public Shape {
+public:
+    // explicit is used to prevent implicit conversion from double to Sphere.
+    explicit Sphere(double radius) : m_radius(radius) {}
+    double eval(const Vec3& p) const override;
+
+private:
+    double m_radius;
+}; // namespace goop
+
+}
 
 #endif // GOOP_SHAPE_HPP

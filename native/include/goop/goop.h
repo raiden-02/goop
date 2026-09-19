@@ -102,6 +102,20 @@ typedef enum goop_status
 ///         directly, never a status code.
 GOOP_API int32_t goop_get_version(void);
 
+/// @brief Opaque handle to a node in the SDF graph. Reference counted.
+typedef struct goop_shape goop_shape;
+
+/// @brief Creates a sphere centred at the origin.
+/// @param radius Must be greater than zero.
+/// @param out_shape Receives the new handle, or NULL on failure. Caller owns
+///        one reference and must pass it to goop_shape_release.
+/// @return GOOP_OK, or GOOP_ERROR_INVALID_ARGUMENT / GOOP_ERROR_OUT_OF_MEMORY.
+GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_shape);
+
+/// @brief Drops one reference. Destroys the shape when the count reaches zero.
+/// @param shape May be NULL, in which case this does nothing.
+GOOP_API void goop_shape_release(goop_shape* shape);
+
 
     /* -------------------------------------------------------------------------
  * TODO: everything below this line, added milestone by milestone.

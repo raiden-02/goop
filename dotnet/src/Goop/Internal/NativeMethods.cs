@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.InteropServices;
 
 namespace Goop.Internal
@@ -72,5 +73,21 @@ namespace Goop.Internal
             SetLastError = false
         )]
         internal static extern int goop_vec3_size();
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_sphere(double radius, out IntPtr shape);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern void goop_shape_release(IntPtr shape);
     }
 }

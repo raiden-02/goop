@@ -34,6 +34,8 @@
 
 #include <goop/goop.h>
 
+#include <new>
+
 #include "mesh.hpp"
 #include "shape.hpp"
 
@@ -56,4 +58,42 @@ static_assert(sizeof(goop_vec3) == 24, "goop_vec3 is not 24 bytes");
 extern "C" GOOP_API int32_t goop_vec3_size(void)
 {
     return (int32_t)sizeof(goop_vec3);
+}
+
+extern "C" GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_shape)
+{
+    if (out_shape == nullptr)
+    {
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    // this nullptr assignment is because if the allocation fails, we don't want to return a dangling pointer.
+    *out_shape = nullptr;
+    
+    if (radius <= 0.0)
+    {
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    try {
+        *out_shape = reinterpret_cast<goop_shape*>(new goop::Sphere(radius));
+        return GOOP_OK;
+    }
+    catch (std::bad_alloc&)
+    {
+        return GOOP_ERROR_OUT_OF_MEMORY;
+    }
+    catch (...)
+    {
+        return GOOP_ERROR_INTERNAL;
+    }
+}
+
+extern "C" GOOP_API void goop_shape_release(goop_shape* shape)
+{
+    if (shape == nullptr)
+    {
+        return;
+    }
+    reinterpret_cast<goop::Shape*>(shape)->release();
 }

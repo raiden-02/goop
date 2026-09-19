@@ -1,3 +1,4 @@
+using System;
 using System.Runtime;
 using System.Runtime.InteropServices;
 using Goop.Internal;
@@ -73,6 +74,23 @@ namespace Goop.Tests
             Assert.AreEqual(0,  Marshal.OffsetOf<Vec3>(nameof(Vec3.X)).ToInt32());
             Assert.AreEqual(8,  Marshal.OffsetOf<Vec3>(nameof(Vec3.Y)).ToInt32());
             Assert.AreEqual(16, Marshal.OffsetOf<Vec3>(nameof(Vec3.Z)).ToInt32());
+        }
+
+        [TestMethod]
+        public void SphereCanBeCreatedAndReleased()
+        {
+            int status = NativeMethods.goop_shape_sphere(1.0, out IntPtr shape);
+            Assert.AreEqual(0, status);
+            Assert.AreNotEqual(IntPtr.Zero, shape);
+            NativeMethods.goop_shape_release(shape);
+        }
+
+        [TestMethod]
+        public void NegativeRadiusIsRejected()
+        {
+            int status = NativeMethods.goop_shape_sphere(-1.0, out IntPtr shape);
+            Assert.AreNotEqual(0, status);
+            Assert.AreEqual(IntPtr.Zero, shape);
         }
     }
 }

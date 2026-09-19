@@ -7,6 +7,8 @@
 
 #include "shape.hpp"
 
+#include <cmath>
+
 namespace goop
 {
 
@@ -28,5 +30,10 @@ namespace goop
 //       worklist instead of the call stack.
 
 // TODO: bounding box propagation up through combinators and transforms.
+
+double Sphere::eval(const Vec3& p) const
+{
+    return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - m_radius;
+}
 
 } // namespace goop
