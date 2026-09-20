@@ -24,12 +24,9 @@
 //      the DLL, stays valid until the next failing call on that thread, and is
 //      never freed by the caller.
 //
-// A useful shape for this, once the functions start appearing, is one private
+// A useful shape for this, once more functions appear, is one private
 // helper that takes a lambda, runs it inside the try/catch, and returns the
 // status - so the error handling gets written once instead of per function.
-//
-// TODO: everything. No functions are defined yet, so goop.dll currently exports
-//       nothing at all. That is the correct state for milestone M0.
 // ===========================================================================
 
 #include <goop/goop.h>
@@ -43,10 +40,6 @@
 //       set_last_error(...) helper that writes into it.
 
 // TODO: the try/catch wrapper helper described above.
-
-// TODO: the extern "C" GOOP_API definitions mirroring goop.h, one milestone at
-//       a time. Start with goop_get_version - it is the cheapest possible proof
-//       that P/Invoke is finding the DLL at all.
 
 extern "C" GOOP_API int32_t goop_get_version(void)
 {

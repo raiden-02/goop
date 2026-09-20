@@ -25,38 +25,32 @@ namespace Goop.Internal
         /// </remarks>
         internal const string LibraryName = "goop_native";
 
-        // TODO: one [DllImport(LibraryName)] extern per function in goop.h, added
-        //       milestone by milestone. Conventions to settle before the first
-        //       one goes in, because changing them later means touching all of
-        //       them:
+        // Conventions for every DllImport in this class:
         //
-        //         * CallingConvention = CallingConvention.Cdecl. The C side is
-        //           cdecl; the P/Invoke default on Windows is StdCall. A
-        //           mismatch does not fail at load time - it corrupts the stack
-        //           at call time, which is a spectacularly confusing bug.
+        //   * CallingConvention = CallingConvention.Cdecl. The C side is
+        //     cdecl; the P/Invoke default on Windows is StdCall. A
+        //     mismatch does not fail at load time - it corrupts the stack
+        //     at call time.
         //
-        //         * ExactSpelling = true, so the marshaller does not go hunting
-        //           for an "A"/"W" suffixed variant that does not exist.
+        //   * ExactSpelling = true, so the marshaller does not go hunting
+        //     for an "A"/"W" suffixed variant that does not exist.
         //
-        //         * SetLastError = false. The native side reports errors through
-        //           goop_status and goop_last_error_message, not through the
-        //           Win32 last-error channel.
+        //   * SetLastError = false. The native side reports errors through
+        //     goop_status and goop_last_error_message, not through the
+        //     Win32 last-error channel.
         //
-        //         * Blittable parameter types only: the Vec3 struct, pointers,
-        //           IntPtr, and the fixed-width integers. No string parameters,
-        //           no bool (its native width is not what you would guess - use
-        //           int and compare), no arrays that need marshalling.
+        //   * Blittable parameter types only: the Vec3 struct, pointers,
+        //     IntPtr, and the fixed-width integers. No string parameters,
+        //     no bool (its native width is not what you would guess - use
+        //     int and compare), no arrays that need marshalling.
         //
-        //         * SafeHandle subclasses as return and parameter types wherever
-        //           a handle crosses, rather than raw IntPtr. That is what makes
-        //           the release path robust against exceptions and async
-        //           aborts.
+        //   * Use [DllImport], not [LibraryImport]. LibraryImport is a
+        //     net7.0+ feature and this assembly also targets net48.
         //
-        //       NOTE: use [DllImport], NOT [LibraryImport]. The source-generated
-        //       LibraryImport is a net7.0+ feature and this assembly also targets
-        //       net48, so the generator is simply not available there. One set of
-        //       DllImports shared by both target frameworks is better than two
-        //       divergent interop layers behind #if.
+        // TODO: SafeHandle subclasses as return and parameter types wherever
+        //       a handle crosses, rather than raw IntPtr. That is what makes
+        //       the release path robust against exceptions and async aborts.
+        //       goop_shape_sphere and goop_shape_release still take IntPtr.
 
         [DllImport(
             LibraryName,

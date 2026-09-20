@@ -2,8 +2,8 @@
 /// @brief The entire public surface of goop.dll.
 ///
 /// This is the ONLY header a consumer ever sees, and the C# side mirrors it one
-/// declaration at a time. Everything below the ABI rules is a TODO list;
-/// declarations are added as each milestone lands.
+/// declaration at a time. Finished declarations sit above the TODO block;
+/// the block lists what has not landed yet.
 ///
 /// Every declaration in this header carries a Doxygen `///` comment. That is a
 /// house rule, not decoration: this file IS the documentation for anyone
@@ -124,31 +124,12 @@ GOOP_API void goop_shape_release(goop_shape* shape);
  * it is not obvious.
  * -------------------------------------------------------------------------
  *
- * --- basic value types ---------------------------------------------------
- *
- * TODO: struct goop_vec3 - three doubles (x, y, z), plain and blittable, laid
- *       out so the C# Vec3 struct can be passed by value with no marshalling.
- *       Double precision throughout: distance fields accumulate error fast,
- *       and float grids show it as visible banding near thin features.
- *
- * TODO: enum goop_status - the return type of (almost) every function here.
- *       Needs at minimum: ok, invalid argument, null handle, out of memory,
- *       cancelled (progress callback asked to stop), and an unknown/internal
- *       catch-all for the exception handler in api.cpp. Fixed integer values,
- *       written out explicitly, never renumbered.
- *
- * TODO: goop_get_version - returns GOOP_ABI_VERSION as compiled into the DLL.
- *       The one function whose signature can never change. Start here: it is
- *       the cheapest possible proof that P/Invoke is finding the DLL at all.
- *
  * --- shapes: opaque, reference counted -----------------------------------
  *
- * TODO: typedef struct goop_shape goop_shape; - opaque handle to a node in the
- *       SDF graph. Never dereferenced outside the core.
- *
- * TODO: primitive constructors: goop_shape_sphere, goop_shape_box,
+ * TODO: primitive constructors still to add: goop_shape_box,
  *       goop_shape_torus, goop_shape_cylinder. Each takes its parameters plus
  *       a goop_shape** out-parameter and returns goop_status.
+ *       goop_shape_sphere is already declared above.
  *
  * TODO: CSG operators: goop_shape_union, goop_shape_subtract,
  *       goop_shape_intersect, and goop_shape_smooth_union (which takes an
@@ -158,8 +139,8 @@ GOOP_API void goop_shape_release(goop_shape* shape);
  *       goop_shape_twist. All of these build a new node that wraps its input;
  *       none of them mutate the input.
  *
- * TODO: goop_shape_retain / goop_shape_release - the ownership story. Nodes
- *       form a DAG, not a tree: the same sphere can appear in two branches of
+ * TODO: goop_shape_retain. goop_shape_release is already declared above.
+ *       Nodes form a DAG, not a tree: the same sphere can appear in two branches of
  *       a CSG expression, so it is reference counted rather than copied.
  *       Combining shapes retains the operands; release drops one count and
  *       destroys at zero, recursively. The C# ShapeSafeHandle is the managed

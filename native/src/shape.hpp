@@ -27,18 +27,13 @@
 namespace goop
 {
 
-// TODO: a Vec3 value type - three doubles, with the handful of operations the
-//       distance functions actually need: +, -, scalar *, dot, length, abs,
-//       componentwise max/min. Layout must match goop_vec3 exactly so api.cpp
-//       can reinterpret rather than convert.
+// TODO: Vec3 operations the distance functions actually need: +, -, scalar *,
+//       dot, length, abs, componentwise max/min. The three-double layout is
+//       already here and must stay identical to goop_vec3.
 
-// TODO: the node base type. Something like an abstract Shape with a virtual
-//       double eval(const Vec3& p) const, plus an intrusive reference count.
-//       Decide (and write down in docs/design.md) whether that refcount is
-//       plain or atomic - that decision is really about the threading model.
-
-// TODO: primitive nodes: Sphere(radius), Box(half extents), Torus(major,
-//       minor), Cylinder(radius, height). Inigo Quilez's distance-function
+// TODO: primitive nodes still to add: Box(half extents), Torus(major, minor),
+//       Cylinder(radius, height). Sphere is already declared below.
+//       Inigo Quilez's distance-function
 //       articles are the reference for the formulae; note which of them give an
 //       exact distance and which only a lower bound, because the mesher's
 //       step-size assumptions depend on the difference.
