@@ -22,8 +22,7 @@
 #include "mesh.hpp"
 #include "shape.hpp"
 
-namespace goop
-{
+namespace goop {
 
 // TODO: choose the sampling domain. Query the shape's bounding box, pad it by
 //       at least one cell so the surface is never clipped by the grid boundary,

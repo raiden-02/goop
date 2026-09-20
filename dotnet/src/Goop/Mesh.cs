@@ -1,5 +1,4 @@
-namespace Goop
-{
+namespace Goop {
     // ======================================================================
     // Mesh - a finished triangle mesh produced by Shape.ToMesh.
     //

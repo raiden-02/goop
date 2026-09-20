@@ -1,5 +1,4 @@
-namespace Goop.Tests
-{
+namespace Goop.Tests {
     // ======================================================================
     // MeshOracle - shared assertions about whether a generated mesh is any good.
     //

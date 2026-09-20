@@ -2,17 +2,14 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace Goop.Gallery
-{
+namespace Goop.Gallery {
     /// <summary>
     /// Showcase app: builds interesting shapes and writes them to
     /// <c>gallery/output/</c> as STL. Today it only reports the host it is
     /// running on and makes sure the output directory exists.
     /// </summary>
-    public static class Program
-    {
-        public static int Main(string[] args)
-        {
+    public static class Program {
+        public static int Main(string[] args) {
             // These two lines are the fastest way to diagnose a
             // BadImageFormatException. A 64-bit goop.dll cannot load into a
             // 32-bit process, and net48 defaults to AnyCPU/Prefer32Bit - so if
@@ -61,15 +58,12 @@ namespace Goop.Gallery
         /// that depth differs between frameworks, so searching for a marker file
         /// is steadier than counting "..".
         /// </remarks>
-        private static string ResolveOutputDirectory()
-        {
+        private static string ResolveOutputDirectory() {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
-            while (directory != null)
-            {
+            while (directory != null) {
                 if (File.Exists(Path.Combine(directory.FullName, "CMakeLists.txt")) &&
-                    Directory.Exists(Path.Combine(directory.FullName, "gallery")))
-                {
+                    Directory.Exists(Path.Combine(directory.FullName, "gallery"))) {
                     return Path.Combine(directory.FullName, "gallery", "output");
                 }
 

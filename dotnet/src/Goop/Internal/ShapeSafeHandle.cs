@@ -1,5 +1,4 @@
-namespace Goop.Internal
-{
+namespace Goop.Internal {
     // ======================================================================
     // ShapeSafeHandle - the managed half of the native refcount on goop_shape.
     //

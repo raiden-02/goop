@@ -31,62 +31,85 @@
 
 #include <goop/goop.h>
 
-#include <new>
-
 #include "mesh.hpp"
 #include "shape.hpp"
 
-// TODO: a thread_local std::string for the last error message, plus a small
-//       set_last_error(...) helper that writes into it.
+#include <exception>
+#include <new>
+#include <stdexcept>
+#include <string>
 
-// TODO: the try/catch wrapper helper described above.
+namespace {
 
-extern "C" GOOP_API int32_t goop_get_version(void)
-{
+// Last failure message for the CALLING thread. thread_local so two threads
+// failing at once never overwrite each other's diagnosis.
+thread_local std::string tls_lastError;
+
+void set_last_error(const char* message) {
+    tls_lastError = message ? message : "";
+}
+
+// Runs body() and turns any C++ exception into a goop_status plus a message.
+// Every fallible export wraps its work in this, so exception handling is
+// written once. noexcept: if set_last_error itself throws inside a catch
+// block, the process terminates here rather than unwinding into the caller.
+template <typename Body> int32_t guard(Body&& body) noexcept {
+    try {
+        return body();
+    } catch (const std::invalid_argument& e) {
+        set_last_error(e.what());
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    } catch (const std::bad_alloc&) {
+        set_last_error("out of memory");
+        return GOOP_ERROR_OUT_OF_MEMORY;
+    } catch (const std::exception& e) {
+        set_last_error(e.what());
+        return GOOP_ERROR_INTERNAL;
+    } catch (...) {
+        set_last_error("unknown error");
+        return GOOP_ERROR_INTERNAL;
+    }
+}
+
+} // namespace
+
+extern "C" GOOP_API int32_t goop_get_version(void) {
     return GOOP_ABI_VERSION;
 }
 
 static_assert(sizeof(goop_vec3) == 24, "goop_vec3 is not 24 bytes");
 
-extern "C" GOOP_API int32_t goop_vec3_size(void)
-{
+extern "C" GOOP_API int32_t goop_vec3_size(void) {
     return (int32_t)sizeof(goop_vec3);
 }
 
-extern "C" GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_shape)
-{
-    if (out_shape == nullptr)
-    {
+extern "C" GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_shape) {
+    if (out_shape == nullptr) {
+        set_last_error("out_shape must not be null");
         return GOOP_ERROR_INVALID_ARGUMENT;
     }
 
-    // this nullptr assignment is because if the allocation fails, we don't want to return a dangling pointer.
+    // Clear first, so a failed call can never leave a stale handle behind.
     *out_shape = nullptr;
-    
-    if (radius <= 0.0)
-    {
-        return GOOP_ERROR_INVALID_ARGUMENT;
-    }
 
-    try {
+    return guard([&]() -> int32_t {
+        // also rejects NaN
+        if (!(radius > 0.0)) {
+            throw std::invalid_argument("radius must be positive");
+        }
         *out_shape = reinterpret_cast<goop_shape*>(new goop::Sphere(radius));
         return GOOP_OK;
-    }
-    catch (std::bad_alloc&)
-    {
-        return GOOP_ERROR_OUT_OF_MEMORY;
-    }
-    catch (...)
-    {
-        return GOOP_ERROR_INTERNAL;
-    }
+    });
 }
 
-extern "C" GOOP_API void goop_shape_release(goop_shape* shape)
-{
-    if (shape == nullptr)
-    {
+extern "C" GOOP_API void goop_shape_release(goop_shape* shape) {
+    if (shape == nullptr) {
         return;
     }
     reinterpret_cast<goop::Shape*>(shape)->release();
+}
+
+extern "C" GOOP_API const char* goop_last_error_message(void) {
+    // Never NULL, as documented in goop.h: empty string if nothing has failed.
+    return tls_lastError.c_str();
 }

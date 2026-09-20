@@ -1,5 +1,4 @@
-namespace Goop
-{
+namespace Goop {
     // ======================================================================
     // StlWriter - writes a Mesh out as binary STL.
     //

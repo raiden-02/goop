@@ -34,14 +34,11 @@
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Goop.PackageTests
-{
+namespace Goop.PackageTests {
     [TestClass]
-    public class PackageConsumptionTests
-    {
+    public class PackageConsumptionTests {
         [TestMethod]
-        public void ScaffoldBuilds()
-        {
+        public void ScaffoldBuilds() {
             var scaffoldIsWiredUp = true;
             Assert.IsTrue(scaffoldIsWiredUp);
         }

@@ -63,8 +63,7 @@
 #define GOOP_ABI_VERSION 1
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /// @brief A point or vector in 3D space. Plain, blittable, POD.
@@ -74,8 +73,7 @@ extern "C"
 ///
 /// Layout is part of the ABI (rule 8). The managed Vec3 mirrors it exactly, and
 /// goop_vec3_size() exists so a test can prove that rather than trust it.
-typedef struct goop_vec3
-{
+typedef struct goop_vec3 {
     double x;
     double y;
     double z;
@@ -85,16 +83,14 @@ typedef struct goop_vec3
 /// @return The size in bytes. Expected to be 24.
 GOOP_API int32_t goop_vec3_size(void);
 
-
-/// @brief Result of every fallible goop_ call. 
-typedef enum goop_status
-{
-    GOOP_OK                     = 0,
+/// @brief Result of every fallible goop_ call.
+typedef enum goop_status {
+    GOOP_OK = 0,
     GOOP_ERROR_INVALID_ARGUMENT = 1,
-    GOOP_ERROR_NULL_HANDLE      = 2,
-    GOOP_ERROR_OUT_OF_MEMORY    = 3,
-    GOOP_ERROR_CANCELLED        = 4,
-    GOOP_ERROR_INTERNAL         = 5
+    GOOP_ERROR_NULL_HANDLE = 2,
+    GOOP_ERROR_OUT_OF_MEMORY = 3,
+    GOOP_ERROR_CANCELLED = 4,
+    GOOP_ERROR_INTERNAL = 5
 } goop_status;
 
 /// @brief Returns the ABI version compiled into this DLL.
@@ -116,8 +112,12 @@ GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_shape);
 /// @param shape May be NULL, in which case this does nothing.
 GOOP_API void goop_shape_release(goop_shape* shape);
 
+/// @brief Message describing the last failure on the calling thread.
+/// @return Owned by the DLL. Valid until the next failing call on this
+///         thread. Never NULL; empty string if nothing has failed.
+GOOP_API const char* goop_last_error_message(void);
 
-    /* -------------------------------------------------------------------------
+/* -------------------------------------------------------------------------
  * TODO: everything below this line, added milestone by milestone.
  * Each declaration gets its own /// block: @brief, @param for every argument
  * (including which side owns it), @return, and a note on thread safety where
@@ -176,13 +176,6 @@ GOOP_API void goop_shape_release(goop_shape* shape);
  *       caller's buffer capacity and refuses to write past it.
  *
  * TODO: goop_mesh_release.
- *
- * --- errors --------------------------------------------------------------
- *
- * TODO: goop_last_error_message - returns a const char* describing the last
- *       failure on the CALLING THREAD. Thread-local storage in api.cpp, owned
- *       by the DLL, valid until the next failing call on that thread. The
- *       caller copies it if it wants to keep it, and never frees it.
  */
 
 #ifdef __cplusplus

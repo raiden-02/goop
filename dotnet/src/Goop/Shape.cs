@@ -1,5 +1,4 @@
-namespace Goop
-{
+namespace Goop {
     // ======================================================================
     // Shape - a node in the SDF expression graph, seen from managed code.
     //

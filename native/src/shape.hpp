@@ -24,8 +24,7 @@
 
 #include <atomic>
 
-namespace goop
-{
+namespace goop {
 
 // TODO: Vec3 operations the distance functions actually need: +, -, scalar *,
 //       dot, length, abs, componentwise max/min. The three-double layout is
@@ -62,33 +61,40 @@ struct Vec3 {
 };
 
 class Shape {
-public:
+  public:
     virtual ~Shape() = default;
     // = 0 means that the function is pure virtual and must be implemented by the derived class.
     virtual double eval(const Vec3& p) const = 0;
-    void retain() noexcept { ++m_refCount; }
-    void release() noexcept { if (--m_refCount == 0) delete this; }
 
-protected:
+    void retain() noexcept {
+        ++m_refCount;
+    }
+
+    void release() noexcept {
+        if (--m_refCount == 0)
+            delete this;
+    }
+
+  protected:
     Shape() = default;
 
-private:
+  private:
     // std::atomic is used to ensure that the reference count is updated atomically i.e
     // when multiple threads are accessing the same Shape object.
     std::atomic<int> m_refCount{1};
 };
 
-
 class Sphere final : public Shape {
-public:
+  public:
     // explicit is used to prevent implicit conversion from double to Sphere.
     explicit Sphere(double radius) : m_radius(radius) {}
+
     double eval(const Vec3& p) const override;
 
-private:
+  private:
     double m_radius;
 }; // namespace goop
 
-}
+} // namespace goop
 
 #endif // GOOP_SHAPE_HPP

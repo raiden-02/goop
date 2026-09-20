@@ -1,5 +1,4 @@
-namespace Goop.Internal
-{
+namespace Goop.Internal {
     // ======================================================================
     // MeshSafeHandle - owns a goop_mesh handle.
     //

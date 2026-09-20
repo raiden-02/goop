@@ -9,8 +9,7 @@
 
 #include <cmath>
 
-namespace goop
-{
+namespace goop {
 
 // TODO: Vec3 operations - or keep them inline in the header if they turn out to
 //       be small enough that call overhead dominates the arithmetic.
@@ -32,8 +31,7 @@ namespace goop
 
 // TODO: bounding box propagation up through combinators and transforms.
 
-double Sphere::eval(const Vec3& p) const
-{
+double Sphere::eval(const Vec3& p) const {
     return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - m_radius;
 }
 

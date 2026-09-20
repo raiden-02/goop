@@ -9,8 +9,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("scaffold builds")
-{
+TEST_CASE("scaffold builds") {
     REQUIRE(true);
 }
 

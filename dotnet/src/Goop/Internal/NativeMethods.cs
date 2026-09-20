@@ -1,8 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace Goop.Internal
-{
+namespace Goop.Internal {
     // ======================================================================
     // NativeMethods - every P/Invoke into goop_native.dll, and nothing else.
     //
@@ -11,8 +10,7 @@ namespace Goop.Internal
     // can be exercised directly.
     // ======================================================================
 
-    internal static class NativeMethods
-    {
+    internal static class NativeMethods {
         /// <summary>
         /// The native library name passed to every <c>DllImport</c>.
         /// </summary>
@@ -83,5 +81,13 @@ namespace Goop.Internal
             SetLastError = false
         )]
         internal static extern void goop_shape_release(IntPtr shape);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern IntPtr goop_last_error_message();
     }
 }

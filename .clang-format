@@ -32,10 +32,10 @@ PointerAlignment: Left
 ReferenceAlignment: Left
 DerivePointerAlignment: false
 
-# Microsoft style already breaks before braces (Allman), which matches the
-# surrounding C# in this repo. Spelled out rather than inherited so that a
-# clang-format version bump cannot quietly change it.
-BreakBeforeBraces: Allman
+# Opening brace stays on the same line as the statement (Attach), matching
+# the C# side. Spelled out rather than inherited so that a clang-format
+# version bump cannot quietly change it.
+BreakBeforeBraces: Attach
 
 # Never collapse a single-statement if onto one line; an unbraced one-liner is
 # where the next `goto fail` bug comes from.

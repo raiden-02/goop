@@ -1,5 +1,4 @@
-namespace Goop.Internal
-{
+namespace Goop.Internal {
     // ======================================================================
     // ProgressCallback - the managed side of the native progress function.
     //

@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Goop
-{
+namespace Goop {
     // ======================================================================
     // Vec3 - the managed mirror of goop_vec3.
     //
@@ -25,8 +24,7 @@ namespace Goop
     /// be passed to the DLL with no conversion.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    public readonly struct Vec3
-    {
+    public readonly struct Vec3 {
         /// <summary>The X coordinate, in the same units as the native struct.</summary>
         public readonly double X;
 

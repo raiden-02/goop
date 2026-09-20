@@ -1,5 +1,4 @@
-namespace Goop
-{
+namespace Goop {
     // ======================================================================
     // Sdf - the static entry point. Every Goop expression starts here.
     //

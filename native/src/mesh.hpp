@@ -13,8 +13,7 @@
 #ifndef GOOP_MESH_HPP
 #define GOOP_MESH_HPP
 
-namespace goop
-{
+namespace goop {
 
 // TODO: struct Mesh with just:
 //           std::vector<Vec3>     vertices;

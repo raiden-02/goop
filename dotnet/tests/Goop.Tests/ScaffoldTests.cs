@@ -1,21 +1,17 @@
 using System;
-using System.Runtime;
 using System.Runtime.InteropServices;
 using Goop.Internal;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Goop.Tests
-{
+namespace Goop.Tests {
     /// <summary>
     /// Placeholder suite proving the test projects build and run on both target
     /// frameworks. Real tests replace this as the milestones land.
     /// </summary>
     [TestClass]
-    public class ScaffoldTests
-    {
+    public class ScaffoldTests {
         [TestMethod]
-        public void ScaffoldBuilds()
-        {
+        public void ScaffoldBuilds() {
             var scaffoldIsWiredUp = true;
             Assert.IsTrue(scaffoldIsWiredUp);
         }
@@ -49,25 +45,22 @@ namespace Goop.Tests
         //       and end at 1.0.
 
         [TestMethod]
-        public void NativeAbiVersionMatchesHeader()
-        {
+        public void NativeAbiVersionMatchesHeader() {
             Assert.AreEqual(1, NativeMethods.goop_get_version());
         }
 
         [TestMethod]
-        public void Vec3LayoutMatchesNative()
-        {
+        public void Vec3LayoutMatchesNative() {
             Assert.AreEqual(24, Marshal.SizeOf<Vec3>());          // managed view
             Assert.AreEqual(24, NativeMethods.goop_vec3_size());  // native view
 
-            Assert.AreEqual(0,  Marshal.OffsetOf<Vec3>(nameof(Vec3.X)).ToInt32());
-            Assert.AreEqual(8,  Marshal.OffsetOf<Vec3>(nameof(Vec3.Y)).ToInt32());
+            Assert.AreEqual(0, Marshal.OffsetOf<Vec3>(nameof(Vec3.X)).ToInt32());
+            Assert.AreEqual(8, Marshal.OffsetOf<Vec3>(nameof(Vec3.Y)).ToInt32());
             Assert.AreEqual(16, Marshal.OffsetOf<Vec3>(nameof(Vec3.Z)).ToInt32());
         }
 
         [TestMethod]
-        public void SphereCanBeCreatedAndReleased()
-        {
+        public void SphereCanBeCreatedAndReleased() {
             int status = NativeMethods.goop_shape_sphere(1.0, out IntPtr shape);
             Assert.AreEqual(0, status);
             Assert.AreNotEqual(IntPtr.Zero, shape);
@@ -75,11 +68,17 @@ namespace Goop.Tests
         }
 
         [TestMethod]
-        public void NegativeRadiusIsRejected()
-        {
+        public void NegativeRadiusIsRejected() {
             int status = NativeMethods.goop_shape_sphere(-1.0, out IntPtr shape);
             Assert.AreNotEqual(0, status);
             Assert.AreEqual(IntPtr.Zero, shape);
+        }
+
+        [TestMethod]
+        public void NegativeRadiusThrowsWithMessage() {
+            int status = NativeMethods.goop_shape_sphere(-1.0, out IntPtr _);
+            var ex = Assert.ThrowsExactly<ArgumentException>(() => Errors.ThrowIfError(status));
+            StringAssert.Contains(ex.Message, "radius");
         }
     }
 }
