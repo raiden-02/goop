@@ -1,3 +1,6 @@
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+
 namespace Goop.Internal {
     // ======================================================================
     // ShapeSafeHandle - the managed half of the native refcount on goop_shape.
@@ -9,20 +12,6 @@ namespace Goop.Internal {
     // release while a P/Invoke using it is still in flight.
     // ======================================================================
 
-    // TODO: an internal sealed class ShapeSafeHandle deriving from
-    //       SafeHandleZeroOrMinusOneIsInvalid (the native constructors return
-    //       null on failure, so "zero is invalid" is the right base) with:
-    //
-    //         * a private parameterless constructor, so the marshaller can
-    //           construct one when a P/Invoke returns this type directly. Making
-    //           it private keeps everyone else on the explicit path.
-    //
-    //         * an override of ReleaseHandle() that calls goop_shape_release and
-    //           returns true. Rules for that method, all of them load-bearing:
-    //           it must not throw, must not allocate, must not take locks, and
-    //           must not call anything that could block - it can run on the
-    //           finalizer thread during shutdown.
-    //
     // TODO: think carefully about where the RETAIN happens.
     //
     //       The native graph is reference counted: goop_shape_smooth_union
@@ -45,4 +34,14 @@ namespace Goop.Internal {
     // TODO (test): a reference-counting test that builds a shared subexpression,
     //       disposes the operand, and then still evaluates the combined shape.
     //       That is the scenario a missing retain destroys.
+
+    internal sealed class ShapeSafeHandle : SafeHandleZeroOrMinusOneIsInvalid {
+        private ShapeSafeHandle() : base(ownsHandle: true) { }
+
+        // Must not throw, allocate, or block. This can run on the finalizer thread.
+        protected override bool ReleaseHandle() {
+            NativeMethods.goop_shape_release(handle);
+            return true;
+        }
+    }
 }

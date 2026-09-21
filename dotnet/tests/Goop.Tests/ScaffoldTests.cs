@@ -34,9 +34,10 @@ namespace Goop.Tests {
         // TODO (M4): mesh a sphere and run it through MeshOracle. Then round-trip
         //       an STL: write it, parse it back, compare triangle counts.
 
-        // TODO (M5): force each error path and assert the mapped exception type
-        //       AND that the message from goop_last_error_message actually
-        //       arrives intact.
+        // TODO (M5): the remaining error paths. Invalid argument is covered by
+        //       NegativeRadiusThrowsWithMessage. Still open: null handle, out of
+        //       memory, cancelled, and internal, each with its mapped exception
+        //       and the message from goop_last_error_message.
 
         // TODO (M6): the delegate-lifetime test described in
         //       Internal/ProgressCallback.cs - force a GC from inside the
@@ -60,25 +61,43 @@ namespace Goop.Tests {
         }
 
         [TestMethod]
-        public void SphereCanBeCreatedAndReleased() {
-            int status = NativeMethods.goop_shape_sphere(1.0, out IntPtr shape);
-            Assert.AreEqual(0, status);
-            Assert.AreNotEqual(IntPtr.Zero, shape);
-            NativeMethods.goop_shape_release(shape);
+        public void SphereHandleReleasesOnDispose() {
+            var shape = CreateSphere(1.0);
+            Assert.IsFalse(shape.IsInvalid);
+            Assert.IsFalse(shape.IsClosed);
+
+            shape.Dispose();
+            Assert.IsTrue(shape.IsClosed);
+
+            shape.Dispose(); // second Dispose must be a harmless no-op, not a double free
         }
 
         [TestMethod]
-        public void NegativeRadiusIsRejected() {
-            int status = NativeMethods.goop_shape_sphere(-1.0, out IntPtr shape);
+        public void NegativeRadiusGivesInvalidHandle() {
+            int status = NativeMethods.goop_shape_sphere(-1.0, out ShapeSafeHandle shape);
             Assert.AreNotEqual(0, status);
-            Assert.AreEqual(IntPtr.Zero, shape);
+            Assert.IsTrue(shape.IsInvalid); // native cleared *out_shape to NULL
+
+            shape.Dispose(); // safe: an invalid handle is never passed to ReleaseHandle
         }
 
         [TestMethod]
         public void NegativeRadiusThrowsWithMessage() {
-            int status = NativeMethods.goop_shape_sphere(-1.0, out IntPtr _);
-            var ex = Assert.ThrowsExactly<ArgumentException>(() => Errors.ThrowIfError(status));
-            StringAssert.Contains(ex.Message, "radius");
+            int status = NativeMethods.goop_shape_sphere(-1.0, out ShapeSafeHandle shape);
+            using (shape) {
+                var ex = Assert.ThrowsExactly<ArgumentException>(() => Errors.ThrowIfError(status));
+                StringAssert.Contains(ex.Message, "radius");
+            }
+        }
+
+        // TODO (M2e/M3): once a native function takes a ShapeSafeHandle as an
+        //       input (goop_shape_retain, or eval_batch), assert that passing a
+        //       disposed handle throws ObjectDisposedException rather than
+        //       sending a dangling pointer into C++.
+
+        private static ShapeSafeHandle CreateSphere(double radius) {
+            Errors.ThrowIfError(NativeMethods.goop_shape_sphere(radius, out ShapeSafeHandle shape));
+            return shape;
         }
     }
 }

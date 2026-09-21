@@ -45,10 +45,9 @@ namespace Goop.Internal {
         //   * Use [DllImport], not [LibraryImport]. LibraryImport is a
         //     net7.0+ feature and this assembly also targets net48.
         //
-        // TODO: SafeHandle subclasses as return and parameter types wherever
-        //       a handle crosses, rather than raw IntPtr. That is what makes
-        //       the release path robust against exceptions and async aborts.
-        //       goop_shape_sphere and goop_shape_release still take IntPtr.
+        //   * SafeHandle subclasses wherever a handle crosses, rather than raw
+        //     IntPtr. The one exception is the release function itself: it is
+        //     called from ReleaseHandle(), which only has the raw handle field.
 
         [DllImport(
             LibraryName,
@@ -72,7 +71,7 @@ namespace Goop.Internal {
             ExactSpelling = true,
             SetLastError = false
         )]
-        internal static extern int goop_shape_sphere(double radius, out IntPtr shape);
+        internal static extern int goop_shape_sphere(double radius, out ShapeSafeHandle shape);
 
         [DllImport(
             LibraryName,
@@ -80,7 +79,7 @@ namespace Goop.Internal {
             ExactSpelling = true,
             SetLastError = false
         )]
-        internal static extern void goop_shape_release(IntPtr shape);
+        internal static extern void goop_shape_release(IntPtr shapeHandle);
 
         [DllImport(
             LibraryName,
