@@ -22,14 +22,8 @@ namespace Goop.Tests {
         //       applied. Asserting it directly turns that into a readable
         //       failure.
 
-        // TODO (M2): reference counting. Build a shared subexpression, dispose
-        //       one operand, then keep using the combined shape. Also assert that
-        //       using a disposed Shape throws ObjectDisposedException rather than
-        //       crashing the process.
-
-        // TODO (M3): batch evaluation against analytically known distances -
-        //       sphere centre, surface, and a point far outside. Vec3's size
-        //       and field offsets are already asserted below.
+        // TODO (M3): goop_shape_eval_batch. Single-point distances are already
+        //       tested in ShapeInteropTests and native/tests/test_core.cpp.
 
         // TODO (M4): mesh a sphere and run it through MeshOracle. Then round-trip
         //       an STL: write it, parse it back, compare triangle counts.
@@ -89,11 +83,6 @@ namespace Goop.Tests {
                 StringAssert.Contains(ex.Message, "radius");
             }
         }
-
-        // TODO (M2e/M3): once a native function takes a ShapeSafeHandle as an
-        //       input (goop_shape_retain, or eval_batch), assert that passing a
-        //       disposed handle throws ObjectDisposedException rather than
-        //       sending a dangling pointer into C++.
 
         private static ShapeSafeHandle CreateSphere(double radius) {
             Errors.ThrowIfError(NativeMethods.goop_shape_sphere(radius, out ShapeSafeHandle shape));

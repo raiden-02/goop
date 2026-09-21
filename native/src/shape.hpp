@@ -22,6 +22,7 @@
 #ifndef GOOP_SHAPE_HPP
 #define GOOP_SHAPE_HPP
 
+#include <algorithm> // std::min, std::max, std::clamp
 #include <atomic>
 
 namespace goop {
@@ -36,12 +37,6 @@ namespace goop {
 //       articles are the reference for the formulae; note which of them give an
 //       exact distance and which only a lower bound, because the mesher's
 //       step-size assumptions depend on the difference.
-
-// TODO: combinator nodes: Union = min(a, b), Intersect = max(a, b),
-//       Subtract = max(a, -b), and SmoothUnion with a blend radius k. The
-//       smooth one is the whole point of the project: a polynomial blend (the
-//       usual quadratic h = clamp(0.5 + 0.5*(b-a)/k, 0, 1) form) that stays
-//       C1-continuous where min() has a crease.
 
 // TODO: transform nodes. Each stores a child and warps the query point:
 //       Translate subtracts an offset, Rotate applies the inverse rotation,
@@ -60,9 +55,13 @@ struct Vec3 {
     double x, y, z;
 };
 
+// ---------------------------------------------------------------------------
+// Shape - the base of every node. Owns the reference count.
+// ---------------------------------------------------------------------------
 class Shape {
   public:
     virtual ~Shape() = default;
+
     // = 0 means that the function is pure virtual and must be implemented by the derived class.
     virtual double eval(const Vec3& p) const = 0;
 
@@ -71,29 +70,149 @@ class Shape {
     }
 
     void release() noexcept {
-        if (--m_refCount == 0)
+        if (--m_refCount == 0) {
             delete this;
+        }
     }
 
+    // NO COPYING, for any shape, ever.
+    //
+    // A shape is a heap object shared by POINTER, with a reference count that
+    // says how many owners it has. Copying one makes no sense: the copy would
+    // start with its own count, and for combinators it would copy the child
+    // pointers WITHOUT calling retain() on them. Then two destructors would each
+    // release children that were only retained once - a double free.
+    //
+    // Declaring these here, on the base, makes EVERY derived class non-copyable
+    // too: a derived class cannot be copied if its base cannot. So BinaryShape,
+    // Union, Sphere etc. need no deletes of their own.
+    //
+    // (Strictly, std::atomic<int> below already makes Shape non-copyable, since
+    // std::atomic itself deletes its copy operations. Relying on that would mean
+    // the rule silently disappears the day someone changes the refcount type, so
+    // it is stated explicitly.)
+    //
+    // Deleting the copy operations also suppresses the implicit MOVE operations,
+    // so moving is forbidden too - which is what we want. Nodes never move; they
+    // are created with new and destroyed by release().
+    Shape(const Shape&) = delete;
+    Shape& operator=(const Shape&) = delete;
+
   protected:
+    // Protected: only derived classes construct a Shape.
     Shape() = default;
 
   private:
     // std::atomic is used to ensure that the reference count is updated atomically i.e
-    // when multiple threads are accessing the same Shape object.
-    std::atomic<int> m_refCount{1};
+    // when multiple threads are accessing the same Shape object. Concretely: the
+    // .NET finalizer thread can call release() while a test thread calls retain().
+    std::atomic<int> m_refCount{1}; // born with one reference, owned by the creator
 };
 
+// ---------------------------------------------------------------------------
+// Primitives
+// ---------------------------------------------------------------------------
 class Sphere final : public Shape {
   public:
     // explicit is used to prevent implicit conversion from double to Sphere.
     explicit Sphere(double radius) : m_radius(radius) {}
 
-    double eval(const Vec3& p) const override;
+    double eval(const Vec3& p) const override; // defined in shape.cpp
 
   private:
     double m_radius;
-}; // namespace goop
+};
+
+// ---------------------------------------------------------------------------
+// BinaryShape - base for every node with two children (all the CSG ops).
+//
+// Ownership rule, and the reason this class exists: a combinator holds ONE
+// reference to each child for as long as it lives. It takes that reference in
+// the constructor (retain) and gives it back in the destructor (release). This
+// is RAII applied to the reference count - the object's lifetime IS its
+// ownership, so the retain/release pair can never be forgotten or unbalanced.
+//
+// Copying is already forbidden by Shape, see above. That is exactly what keeps
+// this class correct: a copy would duplicate m_a/m_b without retaining them.
+// ---------------------------------------------------------------------------
+class BinaryShape : public Shape {
+  protected:
+    // Protected: BinaryShape is not a real shape on its own (it has no eval),
+    // only a base for Union, Intersect, etc.
+    BinaryShape(Shape* a, Shape* b) : m_a(a), m_b(b) {
+        m_a->retain();
+        m_b->retain();
+    }
+
+    ~BinaryShape() override {
+        m_a->release();
+        m_b->release();
+    }
+
+    // Protected, not private: the derived classes' eval() must read them.
+    Shape* m_a;
+    Shape* m_b;
+};
+
+// ---------------------------------------------------------------------------
+// CSG combinators. Inside is negative, so:
+//   union     - inside EITHER   -> min(a, b)
+//   intersect - inside BOTH     -> max(a, b)
+//   subtract  - inside a, NOT b -> max(a, -b)   (-b flips b's inside/outside)
+// ---------------------------------------------------------------------------
+
+// "public BinaryShape", not just "BinaryShape": with the class keyword the
+// default is PRIVATE inheritance, which would hide the fact that a Union IS a
+// Shape. api.cpp could then not convert a Union* to a Shape* to hand it out.
+class Union final : public BinaryShape {
+  public:
+    Union(Shape* a, Shape* b) : BinaryShape(a, b) {}
+
+    double eval(const Vec3& p) const override {
+        return std::min(m_a->eval(p), m_b->eval(p));
+    }
+};
+
+class Intersect final : public BinaryShape {
+  public:
+    Intersect(Shape* a, Shape* b) : BinaryShape(a, b) {}
+
+    double eval(const Vec3& p) const override {
+        return std::max(m_a->eval(p), m_b->eval(p));
+    }
+};
+
+class Subtract final : public BinaryShape {
+  public:
+    // a minus b.
+    Subtract(Shape* a, Shape* b) : BinaryShape(a, b) {}
+
+    double eval(const Vec3& p) const override {
+        return std::max(m_a->eval(p), -m_b->eval(p));
+    }
+};
+
+// Polynomial smooth minimum (Inigo Quilez). Within distance k of the crease
+// where da == db, the two fields are blended and a small bump is subtracted, so
+// the surfaces bulge into each other. Outside that band (|da - db| >= k) h is
+// clamped to 0 or 1 and the result is EXACTLY min(da, db).
+//
+// k must be > 0 (it is a divisor). api.cpp validates that before constructing.
+class SmoothUnion final : public BinaryShape {
+  public:
+    SmoothUnion(Shape* a, Shape* b, double k) : BinaryShape(a, b), m_k(k) {}
+
+    double eval(const Vec3& p) const override {
+        const double da = m_a->eval(p);
+        const double db = m_b->eval(p);
+        const double h = std::clamp(0.5 + 0.5 * (db - da) / m_k, 0.0, 1.0);
+        const double mixed = db + (da - db) * h; // mix(db, da, h)
+        return mixed - m_k * h * (1.0 - h);
+    }
+
+  private:
+    double m_k;
+};
 
 } // namespace goop
 

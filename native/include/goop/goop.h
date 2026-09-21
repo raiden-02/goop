@@ -112,6 +112,97 @@ GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_shape);
 /// @param shape May be NULL, in which case this does nothing.
 GOOP_API void goop_shape_release(goop_shape* shape);
 
+/// @brief Adds one reference. Every retain must be paired with one release.
+///
+/// Only needed by callers that want to hand the same handle to two independent
+/// owners. The CSG functions below retain their operands themselves, so a
+/// caller combining shapes never has to call this.
+///
+/// @param shape May be NULL, in which case this does nothing.
+/// @note Thread-safe: the count is atomic, so retain and release may be called
+///       from different threads (e.g. a .NET finalizer thread).
+GOOP_API void goop_shape_retain(goop_shape* shape);
+
+/* ---------------------------------------------------------------------------
+ * CSG operators.
+ *
+ * Ownership, identical for all four:
+ *   - The result RETAINS both operands. The caller may release a and b
+ *     immediately after the call; the result keeps them alive for as long as
+ *     it lives.
+ *   - The caller owns ONE reference to the result and must release it.
+ *   - On failure *out_shape is set to NULL and nothing is retained.
+ *
+ * The same operand may be passed as both a and b, and the same shape may be
+ * used in any number of expressions: the graph is a DAG, not a tree.
+ * ------------------------------------------------------------------------- */
+
+/// @brief Union of two shapes: inside if inside EITHER. Distance = min(a, b).
+/// @param a First operand. Must not be NULL. Retained by the result.
+/// @param b Second operand. Must not be NULL. Retained by the result.
+/// @param out_shape Receives the new handle, or NULL on failure.
+/// @return GOOP_OK, GOOP_ERROR_NULL_HANDLE if a or b is NULL,
+///         GOOP_ERROR_INVALID_ARGUMENT if out_shape is NULL, or
+///         GOOP_ERROR_OUT_OF_MEMORY.
+GOOP_API int32_t goop_shape_union(goop_shape* a, goop_shape* b, goop_shape** out_shape);
+
+/// @brief Intersection of two shapes: inside only if inside BOTH.
+///        Distance = max(a, b).
+/// @param a First operand. Must not be NULL. Retained by the result.
+/// @param b Second operand. Must not be NULL. Retained by the result.
+/// @param out_shape Receives the new handle, or NULL on failure.
+/// @return As goop_shape_union.
+GOOP_API int32_t goop_shape_intersect(goop_shape* a, goop_shape* b, goop_shape** out_shape);
+
+/// @brief a minus b: inside a and NOT inside b. Distance = max(a, -b).
+///
+/// Order matters: goop_shape_subtract(a, b) carves b out of a.
+///
+/// @param a The shape being cut. Must not be NULL. Retained by the result.
+/// @param b The shape doing the cutting. Must not be NULL. Retained by the
+///        result.
+/// @param out_shape Receives the new handle, or NULL on failure.
+/// @return As goop_shape_union.
+GOOP_API int32_t goop_shape_subtract(goop_shape* a, goop_shape* b, goop_shape** out_shape);
+
+/// @brief Smooth union: like goop_shape_union, but the two surfaces blend
+///        into each other where they meet instead of forming a sharp crease.
+///
+/// Uses the polynomial smooth minimum. Within distance k of where the two
+/// fields are equal, the result is blended and pulled outward; everywhere else
+/// it is exactly min(a, b). Larger k gives a wider, softer join.
+///
+/// @param a First operand. Must not be NULL. Retained by the result.
+/// @param b Second operand. Must not be NULL. Retained by the result.
+/// @param k Blend radius, in the same units as the shapes. Must be > 0.
+/// @param out_shape Receives the new handle, or NULL on failure.
+/// @return As goop_shape_union, plus GOOP_ERROR_INVALID_ARGUMENT if k is not
+///         greater than zero (including NaN).
+GOOP_API int32_t goop_shape_smooth_union(goop_shape* a,
+                                         goop_shape* b,
+                                         double k,
+                                         goop_shape** out_shape);
+
+/* ---------------------------------------------------------------------------
+ * Evaluation.
+ * ------------------------------------------------------------------------- */
+
+/// @brief Signed distance from one point to the shape's surface.
+///
+/// Negative inside, zero on the surface, positive outside. For many points use
+/// goop_shape_eval_batch (M3) instead: one call per point pays the P/Invoke
+/// transition cost every time.
+///
+/// @param shape The shape to query. Must not be NULL. Not retained.
+/// @param p The query point, passed by value.
+/// @param out_distance Receives the distance. Set to NaN on failure, never 0,
+///        so an ignored error cannot be mistaken for "on the surface".
+/// @return GOOP_OK, GOOP_ERROR_NULL_HANDLE if shape is NULL, or
+///         GOOP_ERROR_INVALID_ARGUMENT if out_distance is NULL.
+/// @note Thread-safe for concurrent calls on the same shape: evaluation only
+///       reads the graph.
+GOOP_API int32_t goop_shape_eval(goop_shape* shape, goop_vec3 p, double* out_distance);
+
 /// @brief Message describing the last failure on the calling thread.
 /// @return Owned by the DLL. Valid until the next failing call on this
 ///         thread. Never NULL; empty string if nothing has failed.
@@ -131,20 +222,9 @@ GOOP_API const char* goop_last_error_message(void);
  *       a goop_shape** out-parameter and returns goop_status.
  *       goop_shape_sphere is already declared above.
  *
- * TODO: CSG operators: goop_shape_union, goop_shape_subtract,
- *       goop_shape_intersect, and goop_shape_smooth_union (which takes an
- *       extra blend radius k - the knob that makes shapes melt together).
- *
  * TODO: transforms: goop_shape_translate, goop_shape_rotate, goop_shape_scale,
- *       goop_shape_twist. All of these build a new node that wraps its input;
- *       none of them mutate the input.
- *
- * TODO: goop_shape_retain. goop_shape_release is already declared above.
- *       Nodes form a DAG, not a tree: the same sphere can appear in two branches of
- *       a CSG expression, so it is reference counted rather than copied.
- *       Combining shapes retains the operands; release drops one count and
- *       destroys at zero, recursively. The C# ShapeSafeHandle is the managed
- *       half of this contract.
+ *       goop_shape_twist. All of these build a new node that wraps its input
+ *       (and retains it, like the CSG operators); none of them mutate it.
  *
  * TODO: goop_shape_eval_batch - points in, distances out, both
  *       caller-allocated: (shape, const goop_vec3* points, double* distances,

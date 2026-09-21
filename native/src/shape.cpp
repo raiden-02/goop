@@ -15,11 +15,8 @@ namespace goop {
 //       be small enough that call overhead dominates the arithmetic.
 
 // TODO: primitive distance functions still to add: box, torus, cylinder.
-//       Sphere::eval is below. Mind the sign convention and test it -
-//       eval(centre) of a unit sphere must be exactly -1, eval on the surface
-//       ~0, and outside strictly positive.
-
-// TODO: CSG combinators, including the smooth_union polynomial blend.
+//       Sphere::eval is below. Same sign rule as the sphere tests: negative
+//       inside, zero on the surface, positive outside.
 
 // TODO: transform nodes - the point warp on the way in, and whatever
 //       correction the returned distance needs on the way out.

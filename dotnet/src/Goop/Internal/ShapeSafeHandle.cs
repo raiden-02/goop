@@ -12,28 +12,10 @@ namespace Goop.Internal {
     // release while a P/Invoke using it is still in flight.
     // ======================================================================
 
-    // TODO: think carefully about where the RETAIN happens.
-    //
-    //       The native graph is reference counted: goop_shape_smooth_union
-    //       retains its operands, so the result owns a count on each. The
-    //       managed rule that keeps this straight is "every ShapeSafeHandle owns
-    //       exactly one count, and releases exactly one count". A constructor
-    //       that hands back a fresh node gives you a count you already own. If
-    //       a handle is ever created from a pointer obtained some other way, it
-    //       must retain first.
-    //
-    //       Write this rule down in docs/design.md, because off-by-one
-    //       refcounting is the single most likely bug in this whole project and
-    //       it presents as a crash somewhere completely unrelated.
-    //
-    // TODO: use DangerousAddRef / DangerousRelease (or better, let the
-    //       marshaller do it by declaring the P/Invoke parameter as the
-    //       SafeHandle type) when passing a handle to a native call. That is
-    //       what prevents another thread from disposing the Shape mid-call.
-    //
-    // TODO (test): a reference-counting test that builds a shared subexpression,
-    //       disposes the operand, and then still evaluates the combined shape.
-    //       That is the scenario a missing retain destroys.
+    // TODO: write the retain rule in docs/design.md. The code already follows
+    //       it: every ShapeSafeHandle owns one count, CSG retains its operands,
+    //       and a fresh node from a constructor is a count the caller already
+    //       owns.
 
     internal sealed class ShapeSafeHandle : SafeHandleZeroOrMinusOneIsInvalid {
         private ShapeSafeHandle() : base(ownsHandle: true) { }

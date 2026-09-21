@@ -88,5 +88,45 @@ namespace Goop.Internal {
             SetLastError = false
         )]
         internal static extern IntPtr goop_last_error_message();
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_union(ShapeSafeHandle a, ShapeSafeHandle b, out ShapeSafeHandle shape);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_intersect(ShapeSafeHandle a, ShapeSafeHandle b, out ShapeSafeHandle shape);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_subtract(ShapeSafeHandle a, ShapeSafeHandle b, out ShapeSafeHandle shape);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_smooth_union(ShapeSafeHandle a, ShapeSafeHandle b, double k, out ShapeSafeHandle shape);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_eval(ShapeSafeHandle shape, Vec3 point, out double distance);
     }
 }

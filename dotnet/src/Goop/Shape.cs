@@ -64,4 +64,6 @@ namespace Goop {
     // TODO: XML doc comments, especially on SmoothUnion - blendRadius is the
     //       single most interesting number in the API and deserves an
     //       explanation of what happens as it approaches zero.
+
+    
 }
