@@ -22,9 +22,6 @@ namespace Goop.Tests {
         //       applied. Asserting it directly turns that into a readable
         //       failure.
 
-        // TODO (M3): goop_shape_eval_batch. Single-point distances are already
-        //       tested in ShapeInteropTests and native/tests/test_core.cpp.
-
         // TODO (M4): mesh a sphere and run it through MeshOracle. Then round-trip
         //       an STL: write it, parse it back, compare triangle counts.
 

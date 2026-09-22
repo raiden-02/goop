@@ -22,7 +22,6 @@
 #ifndef GOOP_SHAPE_HPP
 #define GOOP_SHAPE_HPP
 
-#include <algorithm> // std::min, std::max, std::clamp
 #include <atomic>
 
 namespace goop {
@@ -48,8 +47,6 @@ namespace goop {
 
 // TODO: an axis-aligned bounding box query per node, so the mesher can pick a
 //       grid that contains the surface instead of guessing.
-
-// TODO: the batch evaluation entry point behind goop_shape_eval_batch.
 
 struct Vec3 {
     double x, y, z;
@@ -111,13 +108,18 @@ class Shape {
 
 // ---------------------------------------------------------------------------
 // Primitives
+//
+// Every eval() body lives in shape.cpp. They are virtual and called through a
+// Shape*, so the compiler could not inline them from here anyway; keeping them
+// out of the header keeps this file a list of WHAT each shape is, and means a
+// formula change only recompiles shape.cpp.
 // ---------------------------------------------------------------------------
 class Sphere final : public Shape {
   public:
     // explicit is used to prevent implicit conversion from double to Sphere.
     explicit Sphere(double radius) : m_radius(radius) {}
 
-    double eval(const Vec3& p) const override; // defined in shape.cpp
+    double eval(const Vec3& p) const override;
 
   private:
     double m_radius;
@@ -168,18 +170,14 @@ class Union final : public BinaryShape {
   public:
     Union(Shape* a, Shape* b) : BinaryShape(a, b) {}
 
-    double eval(const Vec3& p) const override {
-        return std::min(m_a->eval(p), m_b->eval(p));
-    }
+    double eval(const Vec3& p) const override;
 };
 
 class Intersect final : public BinaryShape {
   public:
     Intersect(Shape* a, Shape* b) : BinaryShape(a, b) {}
 
-    double eval(const Vec3& p) const override {
-        return std::max(m_a->eval(p), m_b->eval(p));
-    }
+    double eval(const Vec3& p) const override;
 };
 
 class Subtract final : public BinaryShape {
@@ -187,28 +185,16 @@ class Subtract final : public BinaryShape {
     // a minus b.
     Subtract(Shape* a, Shape* b) : BinaryShape(a, b) {}
 
-    double eval(const Vec3& p) const override {
-        return std::max(m_a->eval(p), -m_b->eval(p));
-    }
+    double eval(const Vec3& p) const override;
 };
 
-// Polynomial smooth minimum (Inigo Quilez). Within distance k of the crease
-// where da == db, the two fields are blended and a small bump is subtracted, so
-// the surfaces bulge into each other. Outside that band (|da - db| >= k) h is
-// clamped to 0 or 1 and the result is EXACTLY min(da, db).
-//
+// Polynomial smooth minimum. See SmoothUnion::eval in shape.cpp.
 // k must be > 0 (it is a divisor). api.cpp validates that before constructing.
 class SmoothUnion final : public BinaryShape {
   public:
     SmoothUnion(Shape* a, Shape* b, double k) : BinaryShape(a, b), m_k(k) {}
 
-    double eval(const Vec3& p) const override {
-        const double da = m_a->eval(p);
-        const double db = m_b->eval(p);
-        const double h = std::clamp(0.5 + 0.5 * (db - da) / m_k, 0.0, 1.0);
-        const double mixed = db + (da - db) * h; // mix(db, da, h)
-        return mixed - m_k * h * (1.0 - h);
-    }
+    double eval(const Vec3& p) const override;
 
   private:
     double m_k;

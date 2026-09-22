@@ -11,6 +11,9 @@
     <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- The batch-evaluation tests pin arrays with `fixed` and pass pointers,
+         which C# only allows inside unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

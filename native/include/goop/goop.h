@@ -208,6 +208,19 @@ GOOP_API int32_t goop_shape_eval(goop_shape* shape, goop_vec3 p, double* out_dis
 ///         thread. Never NULL; empty string if nothing has failed.
 GOOP_API const char* goop_last_error_message(void);
 
+/// @brief Signed distance for many points in one call.
+/// @param shape Must not be NULL.
+/// @param points Caller-owned array of count points. May be NULL only if count == 0.
+/// @param out_distances Caller-owned array of count doubles, filled by this call.
+///        May be NULL only if count == 0. Pre-filled with NaN, so on failure
+///        no slot looks like a real answer.
+/// @param count Number of points. Must be >= 0. Zero is a valid no-op.
+/// @return GOOP_OK, GOOP_ERROR_NULL_HANDLE, or GOOP_ERROR_INVALID_ARGUMENT.
+GOOP_API int32_t goop_shape_eval_batch(goop_shape* shape,
+                                       const goop_vec3* points,
+                                       double* out_distances,
+                                       int64_t count);
+
 /* -------------------------------------------------------------------------
  * TODO: everything below this line, added milestone by milestone.
  * Each declaration gets its own /// block: @brief, @param for every argument
@@ -225,11 +238,6 @@ GOOP_API const char* goop_last_error_message(void);
  * TODO: transforms: goop_shape_translate, goop_shape_rotate, goop_shape_scale,
  *       goop_shape_twist. All of these build a new node that wraps its input
  *       (and retains it, like the CSG operators); none of them mutate it.
- *
- * TODO: goop_shape_eval_batch - points in, distances out, both
- *       caller-allocated: (shape, const goop_vec3* points, double* distances,
- *       count). Batched rather than per-point because a per-point P/Invoke
- *       makes the transition cost dwarf the arithmetic.
  *
  * --- meshing -------------------------------------------------------------
  *

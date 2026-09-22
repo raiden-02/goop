@@ -39,6 +39,7 @@
 #include "mesh.hpp"
 #include "shape.hpp"
 
+#include <algorithm>
 #include <exception>
 #include <limits>
 #include <new>
@@ -274,6 +275,40 @@ extern "C" GOOP_API int32_t goop_shape_eval(goop_shape* shape, goop_vec3 p, doub
         // different types, so build one from the other field by field. The
         // compiler turns this into a plain 24-byte copy.
         *out_distance = as_shape(shape)->eval(goop::Vec3{p.x, p.y, p.z});
+        return GOOP_OK;
+    });
+}
+
+extern "C" GOOP_API int32_t goop_shape_eval_batch(goop_shape* shape,
+                                                  const goop_vec3* points,
+                                                  double* out_distances,
+                                                  int64_t count) {
+    if (count < 0) {
+        set_last_error("count must not be negative");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (count == 0) {
+        return GOOP_OK;
+    }
+
+    if (!points || !out_distances) {
+        set_last_error("points and out_distances must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    std::fill(out_distances, out_distances + count, std::numeric_limits<double>::quiet_NaN());
+
+    if (!shape) {
+        set_last_error("shape must not be null");
+        return GOOP_ERROR_NULL_HANDLE;
+    }
+
+    return guard([&]() -> int32_t {
+        goop::Shape* s = as_shape(shape);
+        for (int64_t i = 0; i < count; i++) {
+            out_distances[i] = s->eval(goop::Vec3{points[i].x, points[i].y, points[i].z});
+        }
         return GOOP_OK;
     });
 }
