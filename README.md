@@ -2,14 +2,18 @@
 
 *Sculpt shapes that melt into each other, then print them.*
 
-**Status: pre-alpha.** The build, test and packaging infrastructure is in place
-across both languages; the kernel itself is under active development.
+**Status: pre-alpha.** Both sides build and test. Sphere evaluation, CSG,
+reference-counted handles, batch evaluation, and the status-to-exception
+mapping are in. Meshing, the public fluent API, and packaging are not.
 
 ```csharp
 using var shape = Sdf.Sphere(1.0).SmoothUnion(Sdf.Box(0.8, 1.4, 0.8), 0.3);
 using var mesh  = shape.ToMesh(resolution: 128, progress: p => Console.Write($"\r{p:P0}"));
 mesh.SaveStl("blob.stl");
 ```
+
+The snippet above is the API this library is heading toward. `Sdf`, `Shape`,
+and `Mesh` are still stubs, so that program does not build yet.
 
 ## What is an SDF?
 
@@ -47,7 +51,7 @@ in `native/src/shape.cpp`.
 | **CMake 3.20+** | Either installed standalone and on `PATH`, or the **C++ CMake tools for Windows** component inside Visual Studio — `scripts/build.ps1` finds either. |
 | **.NET SDK 10** | Builds all three target frameworks. The `net8.0` reference pack and runtime must also be present (they ship with the 8.0 runtime install). |
 | **.NET Framework 4.8 Developer Pack** | Required to *build* the `net48` target — the runtime alone is not enough, MSBuild needs the reference assemblies. <https://dotnet.microsoft.com/download/dotnet-framework/net48> |
-| **Windows, x64** | The only supported configuration. `goop.dll` is 64-bit and every managed project is pinned to x64 so it can load. |
+| **Windows, x64** | The only supported configuration. `goop_native.dll` is 64-bit and every managed project is pinned to x64 so it can load. |
 | **.NET Framework 4.8 targeting pack** | Included with the Developer Pack above. |
 
 ## Build
@@ -84,10 +88,10 @@ Formatting:
 .\scripts\format.ps1 -Check   # report drift, non-zero exit
 ```
 
-`goop.dll` lands at `build/bin/<Config>/goop.dll`. The test and sample projects
-copy it next to their own output automatically — the OS loader resolves
-`goop.dll` from the running executable's directory, and CMake's output is outside
-the MSBuild graph, so the copy has to be explicit.
+`goop_native.dll` lands at `build/bin/<Config>/goop_native.dll`. The test and
+sample projects copy it next to their own output automatically. The OS loader
+resolves `goop_native.dll` from the running executable's directory, and CMake's
+output is outside the MSBuild graph, so the copy has to be explicit.
 
 Run the sample:
 
@@ -109,8 +113,8 @@ managed one.
 - Open `build/goop.slnx` for native work (CMake generates it) and
   `dotnet/Goop.sln` for managed.
 
-Both rely on `goop.pdb` sitting next to `goop.dll`, which the copy target
-handles.
+Both rely on `goop_native.pdb` sitting next to `goop_native.dll`, which the copy
+target handles.
 
 ## Architecture
 
@@ -141,16 +145,16 @@ foreign caller.
 
 ## Roadmap
 
-- [ ] **M0** — Both sides build. `goop.dll` compiles, `ctest` runs, `dotnet build` succeeds for `net48` and `net8.0`.
-- [ ] **M1** — C# creates a sphere handle and evaluates a single distance on both `net48` and `net8.0`, establishing the P/Invoke path and the x64 loading contract.
-- [ ] **M2** — Node graph with reference-counted ownership (`goop_shape_retain` / `goop_shape_release`, `ShapeSafeHandle`) and the CSG operators on top of it.
-- [ ] **M3** — Batch evaluation into caller-allocated buffers. Points in, distances out, no per-point transition cost.
+- [x] **M0** — Both sides build. `goop_native.dll` compiles, `ctest` runs, `dotnet build` succeeds for `net48`, `net8.0`, and `net10.0`.
+- [x] **M1** — C# creates a sphere handle and evaluates a single distance on `net48`, `net8.0`, and `net10.0`, establishing the P/Invoke path and the x64 loading contract.
+- [x] **M2** — Node graph with reference-counted ownership (`goop_shape_retain` / `goop_shape_release`, `ShapeSafeHandle`) and the CSG operators on top of it.
+- [x] **M3** — Batch evaluation into caller-allocated buffers. Points in, distances out, no per-point transition cost.
 - [ ] **M4** — Surface-nets mesher, the copy-out APIs, and STL export. First `blob.stl`.
-- [ ] **M5** — Error model: `goop_status` codes plus thread-local last-error message, mapped back into real .NET exceptions.
+- [x] **M5** — Error model: `goop_status` codes plus thread-local last-error message, mapped back into real .NET exceptions. Tests still missing for null handle, out of memory, cancelled, and internal.
 - [ ] **M6** — Progress callback and cancellation, including getting delegate lifetime right so a GC mid-mesh does not crash the process.
-- [ ] **M7** — Real test suites both sides: MSTest and Catch2, including the mesh oracle (watertight, manifold, no degenerate triangles).
+- [ ] **M7** — Mesh oracle (watertight, manifold, no degenerate triangles). Shape, CSG, and batch tests already run in MSTest and Catch2.
 - [ ] **M8** — `dotnet pack`, and `Goop.PackageTests` restoring the packed `.nupkg` from a local feed to prove an outside consumer can actually use it.
-- [ ] **M9** — ABI compatibility testing: verify that a mismatch between `goop.dll` and `Goop.dll` is detected via `GOOP_ABI_VERSION` at load time rather than surfacing later as a crash.
+- [ ] **M9** — ABI compatibility testing: verify that a mismatch between `goop_native.dll` and `Goop.dll` is detected via `GOOP_ABI_VERSION` at load time rather than surfacing later as a crash.
 - [ ] **Stretch** — Gyroid and twist shapes; a turntable render for the gallery.
 
 ## Gallery
