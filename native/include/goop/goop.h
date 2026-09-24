@@ -221,6 +221,30 @@ GOOP_API int32_t goop_shape_eval_batch(goop_shape* shape,
                                        double* out_distances,
                                        int64_t count);
 
+/* ---------------------------------------------------------------------------
+ * Transforms.
+ *
+ * Ownership, identical to the CSG operators: the result RETAINS its input, so
+ * the caller may release the input immediately; the caller owns one reference
+ * to the result; on failure *out_shape is NULL and nothing is retained. The
+ * input is never modified - a transform builds a new node that wraps it.
+ * ------------------------------------------------------------------------- */
+
+/// @brief Moves a shape by an offset.
+///
+/// Implemented by moving the query point the opposite way rather than moving
+/// any geometry, so it costs one subtraction per evaluation and the result is
+/// still an exact distance field.
+///
+/// @param shape The shape to move. Must not be NULL. Retained by the result.
+/// @param offset How far to move it, passed by value. Every component must be
+///        finite: NaN or infinity would make every distance NaN.
+/// @param out_shape Receives the new handle, or NULL on failure.
+/// @return GOOP_OK, GOOP_ERROR_NULL_HANDLE if shape is NULL,
+///         GOOP_ERROR_INVALID_ARGUMENT if out_shape is NULL or offset is not
+///         finite, or GOOP_ERROR_OUT_OF_MEMORY.
+GOOP_API int32_t goop_shape_translate(goop_shape* shape, goop_vec3 offset, goop_shape** out_shape);
+
 /* -------------------------------------------------------------------------
  * TODO: everything below this line, added milestone by milestone.
  * Each declaration gets its own /// block: @brief, @param for every argument
@@ -235,9 +259,8 @@ GOOP_API int32_t goop_shape_eval_batch(goop_shape* shape,
  *       a goop_shape** out-parameter and returns goop_status.
  *       goop_shape_sphere is already declared above.
  *
- * TODO: transforms: goop_shape_translate, goop_shape_rotate, goop_shape_scale,
- *       goop_shape_twist. All of these build a new node that wraps its input
- *       (and retains it, like the CSG operators); none of them mutate it.
+ * TODO: the remaining transforms: goop_shape_rotate, goop_shape_scale,
+ *       goop_shape_twist. Same ownership rules as goop_shape_translate.
  *
  * --- meshing -------------------------------------------------------------
  *

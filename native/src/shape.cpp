@@ -19,10 +19,11 @@ namespace goop {
 //       Sphere::eval is below. Same sign rule as the sphere tests: negative
 //       inside, zero on the surface, positive outside.
 
-// TODO: transform nodes - the point warp on the way in, and whatever
-//       correction the returned distance needs on the way out.
+// TODO: the remaining transforms (Rotate, Scale, Twist) - the point warp on
+//       the way in, and whatever correction the returned distance needs on the
+//       way out. Translate is below.
 
-// TODO: recursive teardown. ~BinaryShape releases its children, which may
+// TODO: recursive teardown. ~BinaryShape and ~UnaryShape release their children, which may
 //       release theirs, and so on: a very deeply nested expression can overflow
 //       the stack. Either bound the nesting or drive teardown from an explicit
 //       worklist instead of the call stack.
@@ -66,6 +67,20 @@ double SmoothUnion::eval(const Vec3& p) const {
     const double h = std::clamp(0.5 + 0.5 * (db - da) / m_k, 0.0, 1.0);
     const double mixed = db + (da - db) * h; // mix(db, da, h)
     return mixed - m_k * h * (1.0 - h);
+}
+
+// ---------------------------------------------------------------------------
+// Transforms
+// ---------------------------------------------------------------------------
+
+// Move the question, not the shape. A sphere shifted +3 along x is, at point p,
+// exactly as far away as the ORIGINAL sphere is from p shifted -3 along x.
+//
+// Translation is an isometry (it preserves distances), so the result is still
+// an exact distance field - no correction is needed on the way out. Scale will
+// be the first transform that needs one.
+double Translate::eval(const Vec3& p) const {
+    return m_child->eval(Vec3{p.x - m_offset.x, p.y - m_offset.y, p.z - m_offset.z});
 }
 
 } // namespace goop

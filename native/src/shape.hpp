@@ -37,12 +37,12 @@ namespace goop {
 //       exact distance and which only a lower bound, because the mesher's
 //       step-size assumptions depend on the difference.
 
-// TODO: transform nodes. Each stores a child and warps the query point:
-//       Translate subtracts an offset, Rotate applies the inverse rotation,
-//       Scale divides in and multiplies the result out (uniform scale only, or
-//       the field stops being a true distance), Twist rotates about an axis by
-//       an amount proportional to the coordinate along it. Note that Twist is
-//       a non-isometric warp, so its result is a distance BOUND, not an exact
+// TODO: the remaining transform nodes, each a UnaryShape like Translate below:
+//       Rotate applies the inverse rotation to the query point, Scale divides
+//       in and multiplies the result out (uniform scale only, or the field
+//       stops being a true distance), Twist rotates about an axis by an amount
+//       proportional to the coordinate along it. Note that Twist is a
+//       non-isometric warp, so its result is a distance BOUND, not an exact
 //       distance - the mesher has to tolerate that.
 
 // TODO: an axis-aligned bounding box query per node, so the mesher can pick a
@@ -198,6 +198,42 @@ class SmoothUnion final : public BinaryShape {
 
   private:
     double m_k;
+};
+
+// ---------------------------------------------------------------------------
+// UnaryShape - base for every node with ONE child (all the transforms).
+//
+// Exactly the same ownership rule as BinaryShape, for one child instead of
+// two: retain in the constructor, release in the destructor. Copying is
+// forbidden by Shape, which keeps this correct.
+// ---------------------------------------------------------------------------
+class UnaryShape : public Shape {
+  protected:
+    explicit UnaryShape(Shape* child) : m_child(child) {
+        m_child->retain();
+    }
+
+    ~UnaryShape() override {
+        m_child->release();
+    }
+
+    Shape* m_child;
+};
+
+// ---------------------------------------------------------------------------
+// Transforms. They never move geometry. They move the QUESTION: to ask how far
+// p is from a shape shifted by some offset, ask the ORIGINAL shape about the
+// point shifted the opposite way. See Translate::eval in shape.cpp.
+// ---------------------------------------------------------------------------
+
+class Translate final : public UnaryShape {
+  public:
+    Translate(Shape* child, const Vec3& offset) : UnaryShape(child), m_offset(offset) {}
+
+    double eval(const Vec3& p) const override;
+
+  private:
+    Vec3 m_offset;
 };
 
 } // namespace goop

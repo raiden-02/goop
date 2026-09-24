@@ -9,9 +9,8 @@ namespace Goop {
     // in C++; this class is a name, a lifetime, and a fluent grammar.
     // ======================================================================
 
-    // TODO: the fluent transforms, same ownership rules as the combinators:
+    // TODO: the remaining fluent transforms, same ownership rules as Translate:
     //
-    //         Translate(Vec3 offset) / Translate(double x, double y, double z)
     //         Rotate(Vec3 axis, double angleRadians)
     //         Scale(double factor)
     //         Twist(double amountPerUnit)
@@ -35,10 +34,11 @@ namespace Goop {
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Create one with a factory on <see cref="Sdf"/>, then combine shapes with
+    /// Create one with a factory on <see cref="Sdf"/>, move it with
+    /// <see cref="Translate(Vec3)"/>, and combine shapes with
     /// <see cref="Union"/>, <see cref="Intersect"/>, <see cref="Subtract"/> and
-    /// <see cref="SmoothUnion"/>. Every combinator returns a NEW shape and leaves
-    /// both operands untouched and still usable.
+    /// <see cref="SmoothUnion"/>. Every one of these returns a NEW shape and
+    /// leaves its inputs untouched and still usable.
     /// </para>
     /// <para>
     /// <b>Ownership.</b> A combined shape keeps its operands alive for as long as
@@ -176,6 +176,41 @@ namespace Goop {
             int status = op(_handle, other._handle, out ShapeSafeHandle result);
             return FromNative(status, result);
         }
+
+        // -------------------------------------------------------------------
+        // Transforms
+        // -------------------------------------------------------------------
+
+        /// <summary>
+        /// This shape moved by <paramref name="offset"/>.
+        /// </summary>
+        /// <param name="offset">How far to move it along each axis. Every component must be finite.</param>
+        /// <returns>
+        /// A new shape. The caller owns it. This shape is not modified and is
+        /// still usable afterwards.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="offset"/> is NaN or infinite.</exception>
+        /// <exception cref="ObjectDisposedException">The shape has been disposed.</exception>
+        public Shape Translate(Vec3 offset) {
+            if (!IsFinite(offset.X) || !IsFinite(offset.Y) || !IsFinite(offset.Z)) {
+                throw new ArgumentOutOfRangeException(nameof(offset), offset,
+                    "Every component of the offset must be a finite number.");
+            }
+            ThrowIfDisposed();
+
+            int status = NativeMethods.goop_shape_translate(_handle, offset, out ShapeSafeHandle result);
+            return FromNative(status, result);
+        }
+
+        /// <summary>
+        /// This shape moved by (<paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>).
+        /// </summary>
+        /// <inheritdoc cref="Translate(Vec3)"/>
+        public Shape Translate(double x, double y, double z) => Translate(new Vec3(x, y, z));
+
+        // double.IsFinite only exists on .NET Core 2.1+, not on net48, so it is
+        // spelled out here once instead of behind #if.
+        private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
         // -------------------------------------------------------------------
         // Evaluation

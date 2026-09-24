@@ -136,5 +136,13 @@ namespace Goop.Internal {
             SetLastError = false
         )]
         internal static extern unsafe int goop_shape_eval_batch(ShapeSafeHandle shape, Vec3* points, double* out_distances, long count);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_translate(ShapeSafeHandle shape, Vec3 offset, out ShapeSafeHandle result);
     }
 }

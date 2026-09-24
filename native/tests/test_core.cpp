@@ -257,11 +257,89 @@ TEST_CASE("using the same shape as both operands is safe") {
     }
 }
 
-// TODO: transform correctness (M-later). Translating a sphere by t and evaluating
-//       at p + t must equal evaluating the original at p. Rotation must not
-//       change the distance at the origin. Uniform scale by s must scale
-//       distances by s. Twist yields a distance BOUND, so only assert that it
-//       never overestimates.
+// ---------------------------------------------------------------------------
+// Translate
+// ---------------------------------------------------------------------------
+
+TEST_CASE("translate moves the shape: its centre is now at the offset") {
+    Ref s{new goop::Sphere(1.0)};
+    Ref moved{new goop::Translate(s.get(), goop::Vec3{3, 0, 0})};
+
+    CHECK_THAT(at(moved, 3, 0, 0), WithinAbs(-1.0, kEps)); // new centre
+    CHECK_THAT(at(moved, 4, 0, 0), WithinAbs(0.0, kEps));  // new surface
+    CHECK_THAT(at(moved, 0, 0, 0), WithinAbs(2.0, kEps));  // old centre is now outside
+}
+
+TEST_CASE("translate: moved shape at p+t equals original at p, for any p") {
+    // The defining property. If this holds everywhere, Translate is correct.
+    Ref s{new goop::Sphere(1.0)};
+    const goop::Vec3 t{0.5, -2.0, 1.25};
+    Ref moved{new goop::Translate(s.get(), t)};
+
+    for (double x = -2.0; x <= 2.0; x += 0.5) {
+        for (double y = -2.0; y <= 2.0; y += 0.5) {
+            INFO("p = (" << x << ", " << y << ", 0.3)");
+            CHECK_THAT(at(moved, x + t.x, y + t.y, 0.3 + t.z), WithinAbs(at(s, x, y, 0.3), kEps));
+        }
+    }
+}
+
+TEST_CASE("translate by zero changes nothing") {
+    Ref s{new goop::Sphere(1.0)};
+    Ref same{new goop::Translate(s.get(), goop::Vec3{0, 0, 0})};
+
+    CHECK_THAT(at(same, 0, 0, 0), WithinAbs(at(s, 0, 0, 0), kEps));
+    CHECK_THAT(at(same, 3, 4, 0), WithinAbs(at(s, 3, 4, 0), kEps));
+}
+
+TEST_CASE("translating twice adds the offsets") {
+    Ref s{new goop::Sphere(1.0)};
+    Ref once{new goop::Translate(s.get(), goop::Vec3{1, 0, 0})};
+    Ref twice{new goop::Translate(once.get(), goop::Vec3{0, 2, 0})};
+
+    CHECK_THAT(at(twice, 1, 2, 0), WithinAbs(-1.0, kEps)); // centre at (1, 2, 0)
+}
+
+TEST_CASE("translate keeps its child alive, then frees it when it dies") {
+    Probe::alive = 0;
+    {
+        Ref child{new Probe};
+        Ref moved{new goop::Translate(child.get(), goop::Vec3{1, 0, 0})};
+
+        child.reset();
+        CHECK(Probe::alive == 1); // Translate still holds it
+
+        moved.reset();
+        CHECK(Probe::alive == 0);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The goop effect: two shapes APART, melted together
+// ---------------------------------------------------------------------------
+
+TEST_CASE("smooth union fills the gap between separated shapes; plain union does not") {
+    // Two unit spheres at x = -1.2 and x = +1.2. Their surfaces stop at x = -0.2
+    // and x = +0.2, so there is a 0.4-wide gap around the origin.
+    Ref base{new goop::Sphere(1.0)};
+    Ref left{new goop::Translate(base.get(), goop::Vec3{-1.2, 0, 0})};
+    Ref right{new goop::Translate(base.get(), goop::Vec3{1.2, 0, 0})};
+
+    Ref plain{new goop::Union(left.get(), right.get())};
+    Ref blob{new goop::SmoothUnion(left.get(), right.get(), 1.0)};
+
+    // Plain union: the origin is in the gap, 0.2 from either surface.
+    CHECK_THAT(at(plain, 0, 0, 0), WithinAbs(0.2, kEps));
+
+    // Smooth union: both fields are 0.2 there, a tie, so h = 0.5 and the bump
+    // is k * 0.25 = 0.25. Result 0.2 - 0.25 = -0.05: NEGATIVE, i.e. inside. The
+    // two spheres have melted into one blob with a neck across the gap.
+    CHECK_THAT(at(blob, 0, 0, 0), WithinAbs(-0.05, kEps));
+}
+
+// TODO: the remaining transforms. Rotation must not change the distance at the
+//       origin. Uniform scale by s must scale distances by s. Twist yields a
+//       distance BOUND, so only assert that it never overestimates.
 
 // TODO: mesher output (M4). For a single sphere at a known resolution: the
 //       triangle count is nonzero, indices.size() % 3 == 0, every index is in

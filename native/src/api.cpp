@@ -40,6 +40,7 @@
 #include "shape.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <exception>
 #include <limits>
 #include <new>
@@ -309,6 +310,38 @@ extern "C" GOOP_API int32_t goop_shape_eval_batch(goop_shape* shape,
         for (int64_t i = 0; i < count; i++) {
             out_distances[i] = s->eval(goop::Vec3{points[i].x, points[i].y, points[i].z});
         }
+        return GOOP_OK;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Transforms
+// ---------------------------------------------------------------------------
+
+extern "C" GOOP_API int32_t goop_shape_translate(goop_shape* shape,
+                                                 goop_vec3 offset,
+                                                 goop_shape** out_shape) {
+    if (out_shape == nullptr) {
+        set_last_error("out_shape must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Clear first, so a failed call can never leave a stale handle behind.
+    *out_shape = nullptr;
+
+    if (shape == nullptr) {
+        set_last_error("shape must not be null");
+        return GOOP_ERROR_NULL_HANDLE;
+    }
+
+    return guard([&]() -> int32_t {
+        // A NaN or infinite offset would poison every distance with NaN, and
+        // the mesher would silently produce nothing. Reject it at the door.
+        if (!std::isfinite(offset.x) || !std::isfinite(offset.y) || !std::isfinite(offset.z)) {
+            throw std::invalid_argument("offset must be finite");
+        }
+        *out_shape = as_handle(
+            new goop::Translate(as_shape(shape), goop::Vec3{offset.x, offset.y, offset.z}));
         return GOOP_OK;
     });
 }
