@@ -5,8 +5,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Goop.Tests {
     /// <summary>
-    /// Placeholder suite proving the test projects build and run on both target
-    /// frameworks. Real tests replace this as the milestones land.
+    /// ABI checks that do not belong to one feature: version, <see cref="Vec3"/>
+    /// layout, and sphere-handle lifetime.
     /// </summary>
     [TestClass]
     public class ScaffoldTests {

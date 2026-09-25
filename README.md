@@ -2,9 +2,11 @@
 
 *Sculpt shapes that melt into each other, then print them.*
 
-**Status: pre-alpha.** Both sides build and test. Sphere evaluation, CSG,
-reference-counted handles, batch evaluation, and the status-to-exception
-mapping are in. Meshing, the public fluent API, and packaging are not.
+**Status: pre-alpha.** Both sides build and test. The public `Sdf` and `Shape`
+API can create a sphere, combine shapes, translate them, and evaluate
+distances. Reference-counted handles, batch evaluation, and the
+status-to-exception mapping are in. Box, torus, cylinder, rotate, scale,
+twist, meshing, and packaging are not.
 
 ```csharp
 using var shape = Sdf.Sphere(1.0).SmoothUnion(Sdf.Box(0.8, 1.4, 0.8), 0.3);
@@ -12,8 +14,9 @@ using var mesh  = shape.ToMesh(resolution: 128, progress: p => Console.Write($"\
 mesh.SaveStl("blob.stl");
 ```
 
-The snippet above is the API this library is heading toward. `Sdf`, `Shape`,
-and `Mesh` are still stubs, so that program does not build yet.
+The snippet above is the API this library is heading toward. `Sdf.Sphere`,
+`SmoothUnion`, and `Translate` exist. `Sdf.Box`, `ToMesh`, and `SaveStl` do
+not, so that program does not build yet.
 
 ## What is an SDF?
 
@@ -152,7 +155,7 @@ foreign caller.
 - [ ] **M4** — Surface-nets mesher, the copy-out APIs, and STL export. First `blob.stl`.
 - [x] **M5** — Error model: `goop_status` codes plus thread-local last-error message, mapped back into real .NET exceptions. Tests still missing for null handle, out of memory, cancelled, and internal.
 - [ ] **M6** — Progress callback and cancellation, including getting delegate lifetime right so a GC mid-mesh does not crash the process.
-- [ ] **M7** — Mesh oracle (watertight, manifold, no degenerate triangles). Shape, CSG, and batch tests already run in MSTest and Catch2.
+- [ ] **M7** — Mesh oracle (watertight, manifold, no degenerate triangles). Shape, CSG, translate, and batch tests already run in MSTest and Catch2.
 - [ ] **M8** — `dotnet pack`, and `Goop.PackageTests` restoring the packed `.nupkg` from a local feed to prove an outside consumer can actually use it.
 - [ ] **M9** — ABI compatibility testing: verify that a mismatch between `goop_native.dll` and `Goop.dll` is detected via `GOOP_ABI_VERSION` at load time rather than surfacing later as a crash.
 - [ ] **Stretch** — Gyroid and twist shapes; a turntable render for the gallery.
