@@ -2,11 +2,10 @@
 
 *Sculpt shapes that melt into each other, then print them.*
 
-**Status: pre-alpha.** Both sides build and test. The public `Sdf` and `Shape`
-API can create a sphere, combine shapes, translate them, and evaluate
-distances. Reference-counted handles, batch evaluation, and the
-status-to-exception mapping are in. Box, torus, cylinder, rotate, scale,
-twist, meshing, and packaging are not.
+**Status: pre-alpha.** Both sides build and test. Sphere, CSG, translate,
+evaluation, and the native surface-nets mesher (copy-out and cancellation)
+are in. The public `Mesh` type, STL export, box, torus, cylinder, rotate,
+scale, twist, and packaging are not.
 
 ```csharp
 using var shape = Sdf.Sphere(1.0).SmoothUnion(Sdf.Box(0.8, 1.4, 0.8), 0.3);
@@ -152,15 +151,15 @@ foreign caller.
 - [x] **M1** — C# creates a sphere handle and evaluates a single distance on `net48`, `net8.0`, and `net10.0`, establishing the P/Invoke path and the x64 loading contract.
 - [x] **M2** — Node graph with reference-counted ownership (`goop_shape_retain` / `goop_shape_release`, `ShapeSafeHandle`) and the CSG operators on top of it.
 - [x] **M3** — Batch evaluation into caller-allocated buffers. Points in, distances out, no per-point transition cost.
-- [ ] **M4** — Surface-nets mesher, the copy-out APIs, and STL export. First `blob.stl`.
+- [ ] **M4** — Public `Mesh`, `Shape.ToMesh`, and STL export. The native surface-nets mesher and the copy-out functions are already in.
 - [x] **M5** — Error model: `goop_status` codes plus thread-local last-error message, mapped back into real .NET exceptions. Tests still missing for null handle, out of memory, cancelled, and internal.
-- [ ] **M6** — Progress callback and cancellation, including getting delegate lifetime right so a GC mid-mesh does not crash the process.
-- [ ] **M7** — Mesh oracle (watertight, manifold, no degenerate triangles). Shape, CSG, translate, and batch tests already run in MSTest and Catch2.
+- [ ] **M6** — Managed progress delegate and its lifetime, so a GC mid-mesh does not crash. Native progress and cancellation are already tested.
+- [ ] **M7** — C# `MeshOracle`. Catch2 already checks a sphere mesh for watertightness, outward winding, and volume.
 - [ ] **M8** — `dotnet pack`, and `Goop.PackageTests` restoring the packed `.nupkg` from a local feed to prove an outside consumer can actually use it.
 - [ ] **M9** — ABI compatibility testing: verify that a mismatch between `goop_native.dll` and `Goop.dll` is detected via `GOOP_ABI_VERSION` at load time rather than surfacing later as a crash.
 - [ ] **Stretch** — Gyroid and twist shapes; a turntable render for the gallery.
 
 ## Gallery
 
-*(Renders land here as the mesher comes online. Generated STL files go in
+*(Renders land here once STL export exists. Generated STL files go in
 `gallery/output/`, which is git-ignored.)*

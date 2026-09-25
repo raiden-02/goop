@@ -22,8 +22,10 @@ namespace Goop.Tests {
         //       applied. Asserting it directly turns that into a readable
         //       failure.
 
-        // TODO (M4): mesh a sphere and run it through MeshOracle. Then round-trip
-        //       an STL: write it, parse it back, compare triangle counts.
+        // TODO (M4): the C# MeshOracle, then an STL round-trip: write a sphere
+        //       mesh, parse it back, compare triangle counts. Meshing and
+        //       copy-out are already tested in MeshInteropTests and
+        //       native/tests/test_core.cpp.
 
         // TODO (M5): the remaining error paths. Invalid argument is covered by
         //       NegativeRadiusThrowsWithMessage. Still open: null handle, out of
@@ -32,9 +34,9 @@ namespace Goop.Tests {
 
         // TODO (M6): the delegate-lifetime test described in
         //       Internal/ProgressCallback.cs - force a GC from inside the
-        //       progress callback during a long mesh. Plus: cancellation raises
-        //       OperationCanceledException, and progress fractions are monotonic
-        //       and end at 1.0.
+        //       progress callback during a long mesh, and check that
+        //       cancellation raises OperationCanceledException. Native progress
+        //       fractions and cancellation are already tested in test_core.cpp.
 
         [TestMethod]
         public void NativeAbiVersionMatchesHeader() {

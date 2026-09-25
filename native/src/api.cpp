@@ -43,6 +43,7 @@
 #include <cmath>
 #include <exception>
 #include <limits>
+#include <memory>
 #include <new>
 #include <stdexcept>
 #include <string>
@@ -101,6 +102,24 @@ goop::Shape* as_shape(goop_shape* h) noexcept {
 
 goop_shape* as_handle(goop::Shape* s) noexcept {
     return reinterpret_cast<goop_shape*>(s);
+}
+
+// The same pair for meshes. Overloaded on type, so the right one is picked
+// automatically and a shape can never be cast to a mesh by accident.
+const goop::Mesh* as_mesh(const goop_mesh* h) noexcept {
+    return reinterpret_cast<const goop::Mesh*>(h);
+}
+
+goop::Mesh* as_mesh(goop_mesh* h) noexcept {
+    return reinterpret_cast<goop::Mesh*>(h);
+}
+
+goop_mesh* as_handle(goop::Mesh* m) noexcept {
+    return reinterpret_cast<goop_mesh*>(m);
+}
+
+goop::Vec3 to_vec3(const goop_vec3& v) noexcept {
+    return goop::Vec3{v.x, v.y, v.z};
 }
 
 // ---------------------------------------------------------------------------
@@ -344,4 +363,154 @@ extern "C" GOOP_API int32_t goop_shape_translate(goop_shape* shape,
             new goop::Translate(as_shape(shape), goop::Vec3{offset.x, offset.y, offset.z}));
         return GOOP_OK;
     });
+}
+
+// ---------------------------------------------------------------------------
+// Meshing
+// ---------------------------------------------------------------------------
+
+extern "C" GOOP_API int32_t goop_shape_to_mesh(goop_shape* shape,
+                                               goop_vec3 bounds_min,
+                                               goop_vec3 bounds_max,
+                                               int32_t resolution,
+                                               goop_progress_fn progress,
+                                               void* user_data,
+                                               goop_mesh** out_mesh) {
+    if (out_mesh == nullptr) {
+        set_last_error("out_mesh must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Clear first, so a failed or cancelled call can never leave a stale handle.
+    *out_mesh = nullptr;
+
+    if (shape == nullptr) {
+        set_last_error("shape must not be null");
+        return GOOP_ERROR_NULL_HANDLE;
+    }
+
+    return guard([&]() -> int32_t {
+        // unique_ptr, not a raw new: if the mesher throws (bad bounds, out of
+        // memory half-way through), the half-built mesh is freed automatically
+        // as the exception leaves this lambda. RAII again.
+        auto mesh = std::make_unique<goop::Mesh>();
+
+        // Adapt the C callback to the core's C++ one. The core says "true =
+        // carry on"; the C ABI says "0 = carry on". An empty ProgressFn means
+        // no reporting and no cancelling.
+        goop::ProgressFn onProgress;
+        if (progress != nullptr) {
+            onProgress = [progress, user_data](double fraction) {
+                return progress(fraction, user_data) == 0;
+            };
+        }
+
+        const goop::MeshResult result = goop::mesh_surface_nets(*as_shape(shape),
+                                                                to_vec3(bounds_min),
+                                                                to_vec3(bounds_max),
+                                                                resolution,
+                                                                onProgress,
+                                                                *mesh);
+
+        if (result == goop::MeshResult::Cancelled) {
+            set_last_error("meshing was cancelled");
+            return GOOP_ERROR_CANCELLED; // unique_ptr frees the empty mesh
+        }
+
+        // Success: hand ownership across the boundary. release() stops the
+        // unique_ptr from deleting it; from here goop_mesh_release owns it.
+        *out_mesh = as_handle(mesh.release());
+        return GOOP_OK;
+    });
+}
+
+extern "C" GOOP_API int32_t goop_mesh_vertex_count(const goop_mesh* mesh, int64_t* out_count) {
+    if (out_count == nullptr) {
+        set_last_error("out_count must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+    *out_count = 0;
+    if (mesh == nullptr) {
+        set_last_error("mesh must not be null");
+        return GOOP_ERROR_NULL_HANDLE;
+    }
+    *out_count = static_cast<int64_t>(as_mesh(mesh)->vertices.size());
+    return GOOP_OK;
+}
+
+extern "C" GOOP_API int32_t goop_mesh_triangle_count(const goop_mesh* mesh, int64_t* out_count) {
+    if (out_count == nullptr) {
+        set_last_error("out_count must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+    *out_count = 0;
+    if (mesh == nullptr) {
+        set_last_error("mesh must not be null");
+        return GOOP_ERROR_NULL_HANDLE;
+    }
+    *out_count = static_cast<int64_t>(as_mesh(mesh)->triangle_count());
+    return GOOP_OK;
+}
+
+extern "C" GOOP_API int32_t goop_mesh_copy_vertices(const goop_mesh* mesh,
+                                                    goop_vec3* out_vertices,
+                                                    int64_t capacity) {
+    if (mesh == nullptr) {
+        set_last_error("mesh must not be null");
+        return GOOP_ERROR_NULL_HANDLE;
+    }
+    const std::vector<goop::Vec3>& vertices = as_mesh(mesh)->vertices;
+
+    // Never write past the caller's buffer: check the size BEFORE touching it.
+    if (capacity < static_cast<int64_t>(vertices.size())) {
+        set_last_error("out_vertices is too small for the mesh's vertex count");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+    if (vertices.empty()) {
+        return GOOP_OK; // nothing to copy; out_vertices may legitimately be null
+    }
+    if (out_vertices == nullptr) {
+        set_last_error("out_vertices must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Field by field, not memcpy through a cast: goop::Vec3 and goop_vec3 are
+    // different types (strict aliasing, as in eval_batch). The compiler turns
+    // this loop into a straight copy anyway.
+    for (std::size_t i = 0; i < vertices.size(); ++i) {
+        out_vertices[i] = goop_vec3{vertices[i].x, vertices[i].y, vertices[i].z};
+    }
+    return GOOP_OK;
+}
+
+extern "C" GOOP_API int32_t goop_mesh_copy_indices(const goop_mesh* mesh,
+                                                   uint32_t* out_indices,
+                                                   int64_t capacity) {
+    if (mesh == nullptr) {
+        set_last_error("mesh must not be null");
+        return GOOP_ERROR_NULL_HANDLE;
+    }
+    const std::vector<uint32_t>& indices = as_mesh(mesh)->indices;
+
+    if (capacity < static_cast<int64_t>(indices.size())) {
+        set_last_error("out_indices is too small for 3 x the mesh's triangle count");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+    if (indices.empty()) {
+        return GOOP_OK;
+    }
+    if (out_indices == nullptr) {
+        set_last_error("out_indices must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Same element type on both sides, so a plain copy is fine here.
+    std::copy(indices.begin(), indices.end(), out_indices);
+    return GOOP_OK;
+}
+
+extern "C" GOOP_API void goop_mesh_release(goop_mesh* mesh) {
+    // Not reference counted: one owner, destroyed once. delete of nullptr is a
+    // no-op, so no check is needed.
+    delete as_mesh(mesh);
 }

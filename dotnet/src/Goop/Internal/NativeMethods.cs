@@ -144,5 +144,66 @@ namespace Goop.Internal {
             SetLastError = false
         )]
         internal static extern int goop_shape_translate(ShapeSafeHandle shape, Vec3 offset, out ShapeSafeHandle result);
+
+        // ------------------------------------------------------------------
+        // Meshing
+        // ------------------------------------------------------------------
+
+        // progress and userData are IntPtr for now: the C side sees a function
+        // pointer and a void*, and passing IntPtr.Zero for both means "no
+        // progress, no cancel". M6 replaces progress with a delegate type. That
+        // changes only this declaration, not the native ABI - the native side
+        // receives a function pointer either way.
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_shape_to_mesh(
+            ShapeSafeHandle shape, Vec3 boundsMin, Vec3 boundsMax, int resolution,
+            IntPtr progress, IntPtr userData, out MeshSafeHandle mesh);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_mesh_vertex_count(MeshSafeHandle mesh, out long count);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern int goop_mesh_triangle_count(MeshSafeHandle mesh, out long count);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern unsafe int goop_mesh_copy_vertices(MeshSafeHandle mesh, Vec3* vertices, long capacity);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern unsafe int goop_mesh_copy_indices(MeshSafeHandle mesh, uint* indices, long capacity);
+
+        // IntPtr, not MeshSafeHandle: called only from MeshSafeHandle.ReleaseHandle,
+        // when the handle is already closed. Same reason as goop_shape_release.
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
+        internal static extern void goop_mesh_release(IntPtr mesh);
     }
 }

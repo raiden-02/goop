@@ -245,6 +245,108 @@ GOOP_API int32_t goop_shape_eval_batch(goop_shape* shape,
 ///         finite, or GOOP_ERROR_OUT_OF_MEMORY.
 GOOP_API int32_t goop_shape_translate(goop_shape* shape, goop_vec3 offset, goop_shape** out_shape);
 
+/* ---------------------------------------------------------------------------
+ * Meshing.
+ *
+ * goop_shape_to_mesh turns a shape into a triangle mesh. The mesh is a
+ * SNAPSHOT: it holds no reference to the shape, so the shape may be released
+ * as soon as the mesh exists. Meshes are NOT reference counted - one owner,
+ * released once with goop_mesh_release.
+ *
+ * Reading a mesh follows ABI rule 5 - the caller allocates:
+ *   1. ask for the count   (goop_mesh_vertex_count / goop_mesh_triangle_count)
+ *   2. allocate a buffer that big
+ *   3. copy into it        (goop_mesh_copy_vertices / goop_mesh_copy_indices)
+ *
+ * Winding: every triangle is counter-clockwise seen from outside the shape, so
+ * (v1 - v0) x (v2 - v0) is an outward normal.
+ * ------------------------------------------------------------------------- */
+
+/// @brief Opaque handle to a finished triangle mesh. Single owner.
+typedef struct goop_mesh goop_mesh;
+
+/// @brief Progress callback for goop_shape_to_mesh.
+///
+/// Called on the thread that called goop_shape_to_mesh, with a fraction in
+/// [0, 1] that only ever increases and ends at exactly 1.
+///
+/// @param fraction How much of the work is done.
+/// @param user_data Whatever the caller passed to goop_shape_to_mesh, untouched.
+/// @return 0 to continue, NONZERO to cancel. After a cancel, goop_shape_to_mesh
+///         returns GOOP_ERROR_CANCELLED and produces no mesh.
+/// @note Must not throw or unwind (ABI rule 6). A C# delegate behind this
+///       pointer must catch its own exceptions.
+typedef int32_t (*goop_progress_fn)(double fraction, void* user_data);
+
+/// @brief Builds a triangle mesh of a shape's surface using surface nets.
+///
+/// Samples the distance field on a grid of cubic cells covering the box
+/// [bounds_min, bounds_max], padded by one cell on every side. A surface that
+/// crosses the box is clipped, leaving a hole: choose bounds that contain the
+/// whole shape. Memory grows with the cube of the resolution.
+///
+/// @param shape The shape to mesh. Must not be NULL. NOT retained: the mesh is
+///        an independent snapshot.
+/// @param bounds_min Minimum corner of the box to mesh. Must be finite.
+/// @param bounds_max Maximum corner. Must be finite and strictly greater than
+///        bounds_min on every axis.
+/// @param resolution Number of cells along the LONGEST side of the box, 2..512.
+/// @param progress Optional. May be NULL.
+/// @param user_data Passed back to progress unchanged. May be NULL.
+/// @param out_mesh Receives the new mesh, or NULL on failure or cancellation.
+///        The caller owns it and must pass it to goop_mesh_release.
+/// @return GOOP_OK, GOOP_ERROR_NULL_HANDLE if shape is NULL,
+///         GOOP_ERROR_INVALID_ARGUMENT for bad bounds or resolution,
+///         GOOP_ERROR_CANCELLED if progress asked to stop, or
+///         GOOP_ERROR_OUT_OF_MEMORY.
+GOOP_API int32_t goop_shape_to_mesh(goop_shape* shape,
+                                    goop_vec3 bounds_min,
+                                    goop_vec3 bounds_max,
+                                    int32_t resolution,
+                                    goop_progress_fn progress,
+                                    void* user_data,
+                                    goop_mesh** out_mesh);
+
+/// @brief Number of vertices in the mesh.
+/// @param mesh Must not be NULL.
+/// @param out_count Receives the count, or 0 on failure.
+/// @return GOOP_OK, GOOP_ERROR_NULL_HANDLE, or GOOP_ERROR_INVALID_ARGUMENT if
+///         out_count is NULL.
+GOOP_API int32_t goop_mesh_vertex_count(const goop_mesh* mesh, int64_t* out_count);
+
+/// @brief Number of triangles in the mesh. The index buffer holds 3 per triangle.
+/// @param mesh Must not be NULL.
+/// @param out_count Receives the count, or 0 on failure.
+/// @return As goop_mesh_vertex_count.
+GOOP_API int32_t goop_mesh_triangle_count(const goop_mesh* mesh, int64_t* out_count);
+
+/// @brief Copies every vertex into a buffer the caller allocated.
+/// @param mesh Must not be NULL.
+/// @param out_vertices Caller-owned buffer. May be NULL only if the mesh has
+///        no vertices.
+/// @param capacity Number of goop_vec3 the buffer holds. Must be at least the
+///        vertex count; this function never writes past it.
+/// @return GOOP_OK, GOOP_ERROR_NULL_HANDLE, or GOOP_ERROR_INVALID_ARGUMENT if
+///         the buffer is NULL or too small. On failure the buffer is untouched.
+GOOP_API int32_t goop_mesh_copy_vertices(const goop_mesh* mesh,
+                                         goop_vec3* out_vertices,
+                                         int64_t capacity);
+
+/// @brief Copies every triangle's three vertex indices into a caller buffer.
+/// @param mesh Must not be NULL.
+/// @param out_indices Caller-owned buffer. May be NULL only if the mesh has no
+///        triangles.
+/// @param capacity Number of uint32_t the buffer holds. Must be at least
+///        3 x the triangle count; this function never writes past it.
+/// @return As goop_mesh_copy_vertices.
+GOOP_API int32_t goop_mesh_copy_indices(const goop_mesh* mesh,
+                                        uint32_t* out_indices,
+                                        int64_t capacity);
+
+/// @brief Destroys the mesh.
+/// @param mesh May be NULL, in which case this does nothing.
+GOOP_API void goop_mesh_release(goop_mesh* mesh);
+
 /* -------------------------------------------------------------------------
  * TODO: everything below this line, added milestone by milestone.
  * Each declaration gets its own /// block: @brief, @param for every argument
@@ -262,31 +364,6 @@ GOOP_API int32_t goop_shape_translate(goop_shape* shape, goop_vec3 offset, goop_
  * TODO: the remaining transforms: goop_shape_rotate, goop_shape_scale,
  *       goop_shape_twist. Same ownership rules as goop_shape_translate.
  *
- * --- meshing -------------------------------------------------------------
- *
- * TODO: typedef struct goop_mesh goop_mesh; - opaque handle to a finished
- *       triangle mesh. Not reference counted; single owner, released once.
- *
- * TODO: progress callback typedef, something like
- *           typedef int32_t (*goop_progress_fn)(double fraction, void* user_data);
- *       Returning NONZERO means "cancel" and the mesher unwinds cleanly,
- *       returning the cancelled status. The void* user_data travels with it so
- *       the managed side can round-trip a GCHandle instead of using globals.
- *       Must not throw (ABI rule 6).
- *
- * TODO: goop_shape_to_mesh - (shape, resolution, bounds?, progress_fn,
- *       user_data, goop_mesh** out). The progress function and user_data may
- *       both be NULL for a fire-and-forget mesh.
- *
- * TODO: the copy-out quartet (ABI rule 5):
- *           goop_mesh_vertex_count
- *           goop_mesh_triangle_count
- *           goop_mesh_copy_vertices   (caller buffer of goop_vec3)
- *           goop_mesh_copy_indices    (caller buffer of uint32_t, 3 per tri)
- *       Query the count, allocate, then fill. Each copy function takes the
- *       caller's buffer capacity and refuses to write past it.
- *
- * TODO: goop_mesh_release.
  */
 
 #ifdef __cplusplus

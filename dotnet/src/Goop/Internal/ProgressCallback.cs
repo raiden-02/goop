@@ -32,8 +32,8 @@ namespace Goop.Internal {
     // as the native user_data parameter and be unwrapped inside the callback.
     // Free it in a finally block, always.
     //
-    // Deliberately no delegate type is declared here yet - that comes with
-    // milestone M6, once the native signature is settled.
+    // The native typedef (goop_progress_fn) is settled. No managed delegate is
+    // declared here yet.
     // ======================================================================
 
     // TODO: declare the delegate matching the native progress typedef, something

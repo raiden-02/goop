@@ -11,10 +11,18 @@
 //   * Goop.Tests (C#): that the same things survive the trip across the ABI.
 // ===========================================================================
 
+#include "mesh.hpp"
 #include "shape.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+
+#include <cmath>
+#include <cstdint>
+#include <set>
+#include <stdexcept>
+#include <utility>
+#include <vector>
 
 using Catch::Matchers::WithinAbs;
 
@@ -341,12 +349,226 @@ TEST_CASE("smooth union fills the gap between separated shapes; plain union does
 //       origin. Uniform scale by s must scale distances by s. Twist yields a
 //       distance BOUND, so only assert that it never overestimates.
 
-// TODO: mesher output (M4). For a single sphere at a known resolution: the
-//       triangle count is nonzero, indices.size() % 3 == 0, every index is in
-//       range, no triangle has two identical vertices, and every vertex sits
-//       within about one cell width of the true surface. Then: is the result
-//       watertight, and does a twisted or thin shape break that? The C#
-//       MeshOracle asserts the same properties from the other side of the ABI.
+// ===========================================================================
+// Mesher
+//
+// There is no "correct mesh" to compare against, so these tests check
+// PROPERTIES any good mesh of a closed shape must have: well-formed indices,
+// vertices on the surface, no holes, consistent winding, and the right volume.
+// ===========================================================================
 
-// TODO: cancellation (M6). A progress callback that returns nonzero on its first
-//       call must abort the mesh promptly and leak nothing.
+namespace {
+
+constexpr double kPi = 3.14159265358979323846;
+
+// Meshes s over the cube [-half, half]^3 and requires it to complete.
+goop::Mesh mesh_of(const Ref& s, double half, int resolution) {
+    goop::Mesh m;
+    const auto result = goop::mesh_surface_nets(*s.get(),
+                                                goop::Vec3{-half, -half, -half},
+                                                goop::Vec3{half, half, half},
+                                                resolution,
+                                                nullptr,
+                                                m);
+    REQUIRE(result == goop::MeshResult::Completed);
+    return m;
+}
+
+// Volume enclosed by a closed mesh, from the divergence theorem: sum, over
+// every triangle, of the signed volume of the tetrahedron it forms with the
+// origin. Outward-facing triangles add, inward-facing ones subtract.
+//
+// This single number checks TWO things at once:
+//   * magnitude close to the true volume -> the shape is right
+//   * sign positive                       -> the winding is outward
+// If every triangle were wound backwards it would come out NEGATIVE.
+double signed_volume(const goop::Mesh& m) {
+    double total = 0.0;
+    for (std::size_t t = 0; t < m.triangle_count(); ++t) {
+        const goop::Vec3& a = m.vertices[m.indices[3 * t + 0]];
+        const goop::Vec3& b = m.vertices[m.indices[3 * t + 1]];
+        const goop::Vec3& c = m.vertices[m.indices[3 * t + 2]];
+        // a . (b x c) / 6
+        const double cx = b.y * c.z - b.z * c.y;
+        const double cy = b.z * c.x - b.x * c.z;
+        const double cz = b.x * c.y - b.y * c.x;
+        total += (a.x * cx + a.y * cy + a.z * cz) / 6.0;
+    }
+    return total;
+}
+
+// Watertight AND consistently oriented, checked through DIRECTED edges.
+//
+// Every triangle (a, b, c) contributes the directed edges a->b, b->c, c->a.
+// On a closed surface where every triangle faces outward:
+//   * each directed edge appears exactly ONCE (twice would mean two triangles
+//     facing opposite ways across it, or three triangles on one edge), and
+//   * its reverse b->a also appears (otherwise the edge is on a hole).
+// Returns the number of directed edges that break either rule: 0 is perfect.
+std::size_t bad_edge_count(const goop::Mesh& m) {
+    std::set<std::pair<uint32_t, uint32_t>> directed;
+    std::size_t duplicates = 0;
+    for (std::size_t t = 0; t < m.triangle_count(); ++t) {
+        const uint32_t v[3] = {m.indices[3 * t], m.indices[3 * t + 1], m.indices[3 * t + 2]};
+        for (int e = 0; e < 3; ++e) {
+            if (!directed.insert({v[e], v[(e + 1) % 3]}).second) {
+                ++duplicates;
+            }
+        }
+    }
+    std::size_t unmatched = 0;
+    for (const auto& edge : directed) {
+        if (directed.count({edge.second, edge.first}) == 0) {
+            ++unmatched;
+        }
+    }
+    return duplicates + unmatched;
+}
+
+} // namespace
+
+TEST_CASE("mesher: a sphere produces a non-empty, well-formed mesh") {
+    Ref s{new goop::Sphere(1.0)};
+    const goop::Mesh m = mesh_of(s, 1.5, 32);
+
+    REQUIRE(m.triangle_count() > 0);
+    CHECK(m.indices.size() % 3 == 0);
+
+    for (std::size_t t = 0; t < m.triangle_count(); ++t) {
+        const uint32_t a = m.indices[3 * t], b = m.indices[3 * t + 1], c = m.indices[3 * t + 2];
+        INFO("triangle " << t);
+        REQUIRE(a < m.vertices.size());
+        REQUIRE(b < m.vertices.size());
+        REQUIRE(c < m.vertices.size());
+        // Surface nets joins four DIFFERENT cells, so a triangle can never
+        // reuse a vertex. If it did, it would be a degenerate sliver.
+        CHECK(a != b);
+        CHECK(b != c);
+        CHECK(c != a);
+    }
+}
+
+TEST_CASE("mesher: every vertex lies within one cell of the true surface") {
+    Ref s{new goop::Sphere(1.0)};
+    const double half = 1.5;
+    const int resolution = 32;
+    const goop::Mesh m = mesh_of(s, half, resolution);
+    const double cell = 2.0 * half / resolution;
+
+    for (std::size_t i = 0; i < m.vertices.size(); ++i) {
+        INFO("vertex " << i);
+        CHECK(std::abs(s->eval(m.vertices[i])) <= cell);
+    }
+}
+
+TEST_CASE("mesher: a sphere mesh is watertight and consistently oriented") {
+    Ref s{new goop::Sphere(1.0)};
+    const goop::Mesh m = mesh_of(s, 1.5, 32);
+
+    CHECK(bad_edge_count(m) == 0);
+}
+
+TEST_CASE("mesher: triangles face outward, and the enclosed volume is right") {
+    Ref s{new goop::Sphere(1.0)};
+    const goop::Mesh m = mesh_of(s, 1.5, 48);
+
+    const double expected = 4.0 / 3.0 * kPi; // volume of a unit sphere
+    const double actual = signed_volume(m);
+
+    CHECK(actual > 0.0); // positive = outward winding
+    // Averaged vertices shave the surface slightly, so allow a few percent.
+    CHECK_THAT(actual, WithinAbs(expected, 0.05 * expected));
+}
+
+TEST_CASE("mesher: two melted spheres make one closed blob, bigger than the two apart") {
+    Ref base{new goop::Sphere(1.0)};
+    Ref left{new goop::Translate(base.get(), goop::Vec3{-1.2, 0, 0})};
+    Ref right{new goop::Translate(base.get(), goop::Vec3{1.2, 0, 0})};
+    Ref plain{new goop::Union(left.get(), right.get())};
+    Ref blob{new goop::SmoothUnion(left.get(), right.get(), 1.0)};
+
+    const goop::Mesh plainMesh = mesh_of(plain, 2.6, 64);
+    const goop::Mesh blobMesh = mesh_of(blob, 2.6, 64);
+
+    // The neck is extra surface, but the blob must still be one closed skin.
+    CHECK(bad_edge_count(blobMesh) == 0);
+    // Filling the gap adds material, so the blob encloses MORE than the two
+    // separate spheres do.
+    CHECK(signed_volume(blobMesh) > signed_volume(plainMesh));
+}
+
+TEST_CASE("mesher: bounds that miss the shape give an empty mesh, not an error") {
+    Ref s{new goop::Sphere(1.0)};
+    goop::Mesh m;
+    const auto result = goop::mesh_surface_nets(
+        *s.get(), goop::Vec3{10, 10, 10}, goop::Vec3{12, 12, 12}, 16, nullptr, m);
+
+    CHECK(result == goop::MeshResult::Completed);
+    CHECK(m.vertices.empty());
+    CHECK(m.indices.empty());
+}
+
+TEST_CASE("mesher: rejects a bad resolution or bad bounds") {
+    Ref s{new goop::Sphere(1.0)};
+    goop::Mesh m;
+    const goop::Vec3 lo{-1, -1, -1}, hi{1, 1, 1};
+    const double nan = std::nan("");
+
+    CHECK_THROWS_AS(goop::mesh_surface_nets(*s.get(), lo, hi, 1, nullptr, m),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(goop::mesh_surface_nets(*s.get(), lo, hi, 513, nullptr, m),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(goop::mesh_surface_nets(*s.get(), hi, lo, 16, nullptr, m),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(goop::mesh_surface_nets(*s.get(), lo, goop::Vec3{1, 1, -1}, 16, nullptr, m),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(goop::mesh_surface_nets(*s.get(), goop::Vec3{nan, -1, -1}, hi, 16, nullptr, m),
+                    std::invalid_argument);
+}
+
+TEST_CASE("mesher: progress only ever increases and ends at exactly 1") {
+    Ref s{new goop::Sphere(1.0)};
+    std::vector<double> reports;
+    goop::Mesh m;
+
+    const auto result = goop::mesh_surface_nets(
+        *s.get(),
+        goop::Vec3{-1.5, -1.5, -1.5},
+        goop::Vec3{1.5, 1.5, 1.5},
+        16,
+        [&reports](double f) {
+            reports.push_back(f);
+            return true;
+        },
+        m);
+
+    REQUIRE(result == goop::MeshResult::Completed);
+    REQUIRE(reports.size() > 2);
+    for (std::size_t i = 1; i < reports.size(); ++i) {
+        INFO("report " << i);
+        CHECK(reports[i] > reports[i - 1]);
+    }
+    CHECK(reports.back() == 1.0);
+}
+
+TEST_CASE("mesher: returning false from progress cancels and leaves the mesh empty") {
+    Ref s{new goop::Sphere(1.0)};
+    int calls = 0;
+    goop::Mesh m;
+
+    const auto result = goop::mesh_surface_nets(
+        *s.get(),
+        goop::Vec3{-1.5, -1.5, -1.5},
+        goop::Vec3{1.5, 1.5, 1.5},
+        64,
+        [&calls](double) {
+            ++calls;
+            return false; // cancel at the very first report
+        },
+        m);
+
+    CHECK(result == goop::MeshResult::Cancelled);
+    CHECK(calls == 1); // it stopped promptly, not after doing all the work
+    CHECK(m.vertices.empty());
+    CHECK(m.indices.empty());
+}
