@@ -1,18 +1,18 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
 namespace Goop.Gallery {
     /// <summary>
-    /// Showcase app: builds interesting shapes and writes them to
-    /// <c>gallery/output/</c> as STL. Today it only reports the host it is
-    /// running on and makes sure the output directory exists.
+    /// Showcase app: builds shapes with Goop and writes them to
+    /// <c>gallery/output/</c> as STL files that any 3D viewer can open.
     /// </summary>
     public static class Program {
         public static int Main(string[] args) {
             // These two lines are the fastest way to diagnose a
-            // BadImageFormatException. A 64-bit goop.dll cannot load into a
-            // 32-bit process, and net48 defaults to AnyCPU/Prefer32Bit - so if
+            // BadImageFormatException. A 64-bit goop_native.dll cannot load into
+            // a 32-bit process, and net48 defaults to AnyCPU/Prefer32Bit - so if
             // Is64BitProcess prints False, the PlatformTarget settings in
             // Directory.Build.props did not take effect and no amount of
             // debugging the interop will help.
@@ -23,18 +23,51 @@ namespace Goop.Gallery {
             var outputDirectory = ResolveOutputDirectory();
             Directory.CreateDirectory(outputDirectory);
             Console.WriteLine("  Output:         " + outputDirectory);
+            Console.WriteLine();
 
-            // TODO (M4+): generate the showcase shapes into outputDirectory.
-            //   * the README's headline blob: a sphere smooth-unioned with a box
-            //   * a sweep of the same blend across several k values, to show what
-            //     the blend radius actually does - that sequence is the single
-            //     most illustrative thing this project can produce
+            // Two spheres, side by side with a gap between them. Every piece is
+            // in its own `using`, so native memory is released deterministically.
+            using var ball = Sdf.Sphere(1.0);
+            using var smallBall = Sdf.Sphere(0.8);
+            using var left = ball.Translate(-1.05, 0, 0);
+            using var right = smallBall.Translate(1.15, 0, 0);
+
+            // A box around both, with room for the blend to bulge outward.
+            var min = new Vec3(-2.5, -1.5, -1.5);
+            var max = new Vec3(2.5, 1.5, 1.5);
+
+            // The headline: the same two spheres, apart and then melted together.
+            using (var apart = left.Union(right)) {
+                Save(apart, min, max, 128, Path.Combine(outputDirectory, "blob_apart.stl"));
+            }
+            // The surfaces are 0.4 apart, so at the middle of the gap each sphere
+            // reports 0.2, and the smooth union there is 0.2 - k/4. It only goes
+            // negative - i.e. the gap actually fills - once k > 0.8. At exactly
+            // 0.8 the two just touch at a point. 1.2 gives a clear, solid neck.
+            using (var blob = left.SmoothUnion(right, 1.2)) {
+                Save(blob, min, max, 128, Path.Combine(outputDirectory, "blob.stl"));
+            }
+
+            // What the blend radius actually does: the same pair at increasing k.
+            // Open these side by side. Below 0.8 the spheres stay apart (each is
+            // only softened on its inner side); above it they join, and the neck
+            // thickens as k grows.
+            foreach (double k in new[] { 0.5, 1.0, 1.5 }) {
+                using var blended = left.SmoothUnion(right, k);
+                Save(blended, min, max, 96, Path.Combine(outputDirectory, "blend_k" + k.ToString("0.0").Replace('.', '_') + ".stl"));
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Open the .stl files in any 3D viewer (Windows: 3D Viewer, or drag onto");
+            Console.WriteLine("https://www.viewstl.com). Start with blob_apart.stl next to blob.stl.");
+
+            // TODO: the rest of the showcase, as primitives and transforms land:
             //   * a torus subtracted from a box, for plain CSG
             //   * a twisted column, to exercise the non-isometric transform and
             //     see how the mesher copes with a field that only bounds the
             //     true distance
-            //   * something at a deliberately low resolution next to the same
-            //     shape at a high one, to make the grid visible
+            //   * the same shape at a deliberately low resolution next to a high
+            //     one, to make the grid visible
             //
             // TODO (M6): pass a progress callback that draws a console progress
             //       bar. The high-resolution meshes take long enough for it to
@@ -46,6 +79,16 @@ namespace Goop.Gallery {
             //       regenerated cheaply at draft quality.
 
             return 0;
+        }
+
+        private static void Save(Shape shape, Vec3 min, Vec3 max, int resolution, string path) {
+            var timer = Stopwatch.StartNew();
+            using var mesh = shape.ToMesh(min, max, resolution);
+            mesh.SaveStl(path);
+            timer.Stop();
+
+            Console.WriteLine("  {0,-16} {1,8:N0} triangles  res {2,3}  {3,6:N0} ms",
+                Path.GetFileName(path), mesh.TriangleCount, resolution, timer.ElapsedMilliseconds);
         }
 
         /// <summary>

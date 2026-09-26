@@ -22,11 +22,6 @@ namespace Goop.Tests {
         //       applied. Asserting it directly turns that into a readable
         //       failure.
 
-        // TODO (M4): the C# MeshOracle, then an STL round-trip: write a sphere
-        //       mesh, parse it back, compare triangle counts. Meshing and
-        //       copy-out are already tested in MeshInteropTests and
-        //       native/tests/test_core.cpp.
-
         // TODO (M5): the remaining error paths. Invalid argument is covered by
         //       NegativeRadiusThrowsWithMessage. Still open: null handle, out of
         //       memory, cancelled, and internal, each with its mapped exception

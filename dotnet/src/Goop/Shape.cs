@@ -20,12 +20,16 @@ namespace Goop {
     //       site. If both, name them differently (RotateDegrees) rather than
     //       overloading on meaning.
     //
-    // TODO: ToMesh(int resolution, Action<double>? progress = null,
+    // TODO (M6): progress and cancellation for ToMesh:
+    //         ToMesh(min, max, resolution, Action<double>? progress = null,
     //                CancellationToken cancellationToken = default)
-    //       returning a Mesh. The progress callback and the cancellation token
-    //       both funnel into the single native progress function - see
+    //       Both funnel into the single native progress function - see
     //       Internal/ProgressCallback.cs for the delegate lifetime problem that
     //       makes this the trickiest method in the library.
+    //
+    // TODO: automatic bounds. ToMesh needs the caller to say where the shape
+    //       is. Once nodes can report a bounding box, add ToMesh(resolution)
+    //       that picks the box itself.
 
     /// <summary>
     /// A signed distance field: a shape that can report, for any point, how far
@@ -259,6 +263,75 @@ namespace Goop {
                 status = NativeMethods.goop_shape_eval_batch(_handle, p, d, points.Length);
             }
             Errors.ThrowIfError(status);
+        }
+
+        // -------------------------------------------------------------------
+        // Meshing
+        // -------------------------------------------------------------------
+
+        /// <summary>Smallest resolution <see cref="ToMesh"/> accepts.</summary>
+        public const int MinResolution = 2;
+
+        /// <summary>
+        /// Largest resolution <see cref="ToMesh"/> accepts. Memory grows with the
+        /// CUBE of the resolution; this is roughly 1 GB.
+        /// </summary>
+        public const int MaxResolution = 512;
+
+        /// <summary>
+        /// Builds a triangle mesh of this shape's surface inside the box
+        /// [<paramref name="min"/>, <paramref name="max"/>].
+        /// </summary>
+        /// <param name="min">Minimum corner of the box. Must be finite.</param>
+        /// <param name="max">
+        /// Maximum corner. Must be finite and greater than <paramref name="min"/> on
+        /// every axis.
+        /// </param>
+        /// <param name="resolution">
+        /// Grid cells along the LONGEST side of the box: higher is smoother and
+        /// slower. 64 is a quick draft, 128 is good, 256 is fine detail. Between
+        /// <see cref="MinResolution"/> and <see cref="MaxResolution"/>.
+        /// </param>
+        /// <returns>A new mesh. The caller owns it. It does not depend on this shape.</returns>
+        /// <remarks>
+        /// The box must contain the whole shape. Any part of the surface outside
+        /// it is cut off, leaving a hole in the mesh. A box that misses the shape
+        /// entirely is not an error: the mesh is simply empty.
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="resolution"/> is out of range.</exception>
+        /// <exception cref="ArgumentException">The box is not finite, or is empty on some axis.</exception>
+        /// <exception cref="ObjectDisposedException">The shape has been disposed.</exception>
+        public Mesh ToMesh(Vec3 min, Vec3 max, int resolution) {
+            if (resolution < MinResolution || resolution > MaxResolution) {
+                throw new ArgumentOutOfRangeException(nameof(resolution), resolution,
+                    "Resolution must be between " + MinResolution + " and " + MaxResolution + ".");
+            }
+            if (!IsFinite(min.X) || !IsFinite(min.Y) || !IsFinite(min.Z) ||
+                !IsFinite(max.X) || !IsFinite(max.Y) || !IsFinite(max.Z)) {
+                throw new ArgumentException("Every coordinate of the bounds must be a finite number.");
+            }
+            if (!(max.X > min.X) || !(max.Y > min.Y) || !(max.Z > min.Z)) {
+                throw new ArgumentException("max must be greater than min on every axis.", nameof(max));
+            }
+            ThrowIfDisposed();
+
+            // IntPtr.Zero, IntPtr.Zero: no progress callback yet (M6).
+            int status = NativeMethods.goop_shape_to_mesh(_handle, min, max, resolution,
+                IntPtr.Zero, IntPtr.Zero, out MeshSafeHandle handle);
+            if (status != 0) {
+                handle.Dispose();
+                Errors.ThrowIfError(status);
+            }
+
+            // If the Mesh constructor throws (it queries the counts), nothing else
+            // owns the handle yet - so release it here rather than leaving it to
+            // the finalizer.
+            try {
+                return new Mesh(handle);
+            } catch {
+                handle.Dispose();
+                throw;
+            }
         }
 
         // -------------------------------------------------------------------
