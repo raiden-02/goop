@@ -149,11 +149,10 @@ namespace Goop.Internal {
         // Meshing
         // ------------------------------------------------------------------
 
-        // progress and userData are IntPtr for now: the C side sees a function
-        // pointer and a void*, and passing IntPtr.Zero for both means "no
-        // progress, no cancel". M6 replaces progress with a delegate type. That
-        // changes only this declaration, not the native ABI - the native side
-        // receives a function pointer either way.
+        // progress is a delegate: the marshaller hands C++ a function pointer
+        // to it. null means "no progress, no cancel". userData is opaque to C++;
+        // see Internal/ProgressCallback.cs for what travels through it and why
+        // the delegate can never be collected mid-call.
         [DllImport(
             LibraryName,
             CallingConvention = CallingConvention.Cdecl,

@@ -15,7 +15,7 @@
   WHY THIS FILE EXISTS: TargetPlatform.
 
   VSTest decides the test host's bitness on its own, and the default is not
-  always x64. If it picks x86, every test that touches goop.dll dies with
+  always x64. If it picks x86, every test that touches goop_native.dll dies with
   BadImageFormatException, because a 32-bit host cannot load a 64-bit native
   library. The managed projects already force PlatformTarget=x64, but that
   governs the ASSEMBLIES, not the host process VSTest launches to run them.

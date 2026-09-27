@@ -1,53 +1,203 @@
 # Goop — design notes
 
-Design decisions and the reasoning behind them, recorded as they are made. Each
-heading below carries the open question it exists to answer; they are filled in
-as the corresponding milestone lands.
+The decisions behind Goop and the reasoning for each. The code comments go into
+detail at the point of use; this document is the overview.
 
 ## Goals & non-goals
 
-*What is Goop deliberately trying to be, and what is it explicitly refusing to do?*
+**Goals.** A small, correct signed-distance-field kernel whose native core can be
+consumed from .NET with no ambiguity about ownership, errors or lifetimes. The
+C boundary is treated as a product surface: narrow, documented, stable, and
+tested from the other side.
+
+**Non-goals.** Being a full modelling kernel (no B-rep, no NURBS). Speed at any
+cost: the mesher samples a dense grid on purpose, because it is simple and
+verifiable. C++/CLI, SWIG, or any generated binding layer: the interop is written
+by hand so that every marshalling decision is explicit.
 
 ## Layering
 
-*Why four layers (consumer → C# fluent API → C ABI → C++ core), and what is each one allowed to know about the others?*
+```
+consumer  →  Goop (C#)  →  goop.h (C ABI)  →  C++17 core
+```
 
-## Shape graph ownership (refcounting vs copying)
+- **The C++ core** (`shape.*`, `mesher.cpp`) uses ordinary C++: classes,
+  virtual dispatch, `std::vector`, exceptions. It knows nothing about the ABI.
+- **`api.cpp`** is the only file that exports anything. It translates handles
+  to objects, turns every exception into a status code, and validates arguments.
+- **`goop.h`** contains C types only. It is the contract.
+- **`NativeMethods`** mirrors `goop.h` one-for-one and is `internal`.
+- **`Shape`, `Sdf`, `Mesh`, `StlWriter`** are the public .NET API: exceptions,
+  `IDisposable`, spans, no pointers.
 
-*Nodes form a DAG, so a subexpression can be shared — why reference counting rather than deep-copying the graph on every combine, and what exactly does "every handle owns one count" mean at each boundary?*
+Each layer depends only on the one directly below it. The core is a static
+library so that C++ tests can link it directly; the ABI is tested from C#,
+because only a foreign caller genuinely exercises calling conventions, layout
+and marshalling.
+
+## Shape graph ownership
+
+An expression is a DAG, not a tree: in `a.Union(b)` and `a.Intersect(c)`, both
+results share `a`. Copying subtrees on every combine would duplicate work and
+memory, so nodes are **intrusively reference counted**:
+
+- A node is created with a count of 1, owned by whoever created it.
+- A combinator or transform `retain`s its children in its constructor and
+  `release`s them in its destructor (RAII), so its lifetime *is* its ownership.
+- Copying a node is forbidden (`= delete` on `Shape`): a copy would duplicate
+  child pointers without retaining them, which leads to a double free.
+- On the .NET side, **each `ShapeSafeHandle` owns exactly one count.** Handles
+  returned by native constructors already carry that count; nothing else in C#
+  calls `retain`.
+
+The count is `std::atomic<int>` because `SafeHandle` finalizers run on the
+finalizer thread, concurrently with user threads.
+
+A mesh is different: it is a snapshot with a single owner and holds no
+reference to its shape.
 
 ## Memory ownership of buffers
 
-*Who allocates, who fills, and who frees for vertices, indices and batch evaluation — and why the caller-allocates, query-count-then-copy pattern instead of returning native pointers?*
+**The caller allocates; native code only fills.** Batch evaluation and mesh
+copy-out both take a pointer plus a capacity:
+
+1. ask for the count (`goop_mesh_vertex_count`),
+2. allocate a managed array of that size,
+3. pin it and let native code copy into it.
+
+Native code never returns memory the caller must free. That removes the question
+"which allocator owns this?", which is the classic cross-runtime crash. Copy
+functions check capacity *before* writing, and fail without touching the buffer.
+
+The one exception is `goop_last_error_message`, which returns a pointer to a
+string the DLL owns. The caller copies it immediately and never frees it.
 
 ## Error model
 
-*How a C++ exception becomes a `goop_status` and then a .NET exception, and why the message lives in thread-local storage on the native side.*
+- Every fallible export returns `int32_t` status (`goop_status` values) and
+  delivers its result through an out-parameter. The return slot is reserved for
+  the outcome.
+- Out-parameters are cleared *first* (to `NULL`, or to `NaN` for distances), so
+  a failed call can never leave a stale handle or a plausible-looking number.
+- Inside `api.cpp`, one `guard` template wraps every body in a catch-all that
+  maps exceptions to statuses and stores a message in a **thread-local** string.
+  Thread-local because two threads failing at once must not overwrite each
+  other's message.
+- On the .NET side, `Errors.ThrowIfError` reads that message and throws the
+  matching standard exception: `ArgumentException`, `OutOfMemoryException`,
+  `OperationCanceledException`, or `GoopException` for everything else.
+- Public methods also validate in C#, so callers get `ArgumentOutOfRangeException`
+  with the correct `ParamName`. The native side validates again, because C# is
+  not the only possible caller.
 
 ## Callbacks & cancellation
 
-*How a managed delegate survives a long native call, what `user_data` carries, and why "return nonzero to cancel" beats every other cancellation mechanism across a C ABI.*
+Meshing reports progress through `int32_t (*)(double fraction, void* user_data)`.
+Returning nonzero means "stop". It is the simplest cancellation mechanism a C ABI
+can express, and it is checked once per grid slice.
+
+A native function pointer to a managed delegate stays valid only while the
+delegate is alive, and the GC cannot see native references. Goop therefore uses
+**one static delegate for the whole process**, which can never be collected. All
+per-call state (the user's lambda, the `CancellationToken`, and any exception)
+lives in a `ProgressBridge` object. A normal (not pinned) `GCHandle` carries that
+object through `user_data`, and it is freed in `Dispose`.
+
+The callback must never let an exception unwind through native frames. If the
+user's lambda throws, the bridge stores the exception, returns "stop", and
+`ToMesh` rethrows it once back in managed code, with its original stack trace.
 
 ## Threading
 
-*What may be called concurrently and what may not — is the refcount atomic, is a single `Shape` safe to evaluate from two threads, and where does the last-error string live?*
+- **Evaluation is read-only** and safe to call concurrently on the same shape.
+- **Reference counts are atomic**, so handles may be retained and released from
+  any thread, including the finalizer thread.
+- **The last-error message is per thread.**
+- **The progress callback runs synchronously** on the thread that called
+  `ToMesh`.
+- **Disposing a shape while another thread uses it is not supported.** The
+  `SafeHandle` prevents a dangling pointer, but the other call fails.
 
 ## ABI rules
 
-*The constraints listed at the top of `goop.h` — C types only, no exceptions crossing, fixed-width integers, opaque handles, caller-allocated buffers — and what each one costs if broken.*
+Listed in full at the top of `goop.h`. In short: C types only; no exceptions
+across the boundary; fixed-width integers; every symbol prefixed `goop_`;
+caller-allocated output buffers; callbacks never throw; handles are opaque
+(incomplete types); struct layout is frozen once shipped.
+
+The native DLL is named **`goop_native.dll`**, not `goop.dll`. On Windows,
+filenames are case-insensitive, so a native `goop.dll` and the managed `Goop.dll`
+cannot share an output directory: one silently overwrites the other.
 
 ## Versioning & compatibility
 
-*What `GOOP_ABI_VERSION` promises, what counts as a breaking change, and how a mismatch between `goop.dll` and `Goop.dll` is detected rather than discovered as a crash.*
+`GOOP_ABI_VERSION` changes whenever the ABI changes in a way that breaks
+existing callers: a changed signature, a reordered struct, a renumbered status.
+Adding a new function is not a break. Fields are only ever appended to a
+struct, and status values are never renumbered.
+
+`goop_get_version()` returns the version compiled into the DLL. Today a test
+checks that it matches the header. A load-time check in `Goop.dll` that refuses
+to run against a DLL with a different version is not yet implemented.
 
 ## Packaging
 
-*How `goop.dll` gets from the CMake output into a NuGet package and then into a consumer's output directory — and why that is different for `net48` and `net8.0`.*
+One NuGet package contains:
+
+```
+lib/net48/Goop.dll   lib/net8.0/Goop.dll   lib/net10.0/Goop.dll
+runtimes/win-x64/native/goop_native.dll
+build/net48/Goop.targets   buildTransitive/net48/Goop.targets
+```
+
+The two runtime families find native libraries differently:
+
+- **.NET 8 and .NET 10** resolve `runtimes/win-x64/native/` through `deps.json`.
+- **.NET Framework 4.8** only looks beside the executable, so the package's
+  `Goop.targets` copies the DLL there.
+
+`dotnet pack` fails if the native DLL has not been built, rather than producing
+a package that throws `DllNotFoundException` in someone else's app.
+
+`Goop.PackageTests` consumes the packed `.nupkg` from a local folder feed, the
+way an outside project would. It is not part of `Goop.sln`, because the package
+does not exist until `dotnet pack` runs. It uses a private package cache,
+because NuGet caches by version and would otherwise keep serving a stale
+`0.1.0`.
 
 ## Testing strategy
 
-*Which properties are tested from C++ against the static core, which are tested from C# through the ABI, which need the packed package — and what a mesh oracle can assert without a reference mesh to compare against.*
+One test per real risk, placed at the layer where that risk lives.
+
+- **C++ (Catch2), against the static core:** distance maths, CSG, smooth union,
+  translation, the melted gap, reference counting (observed through a probe
+  node that counts live instances), mesh quality, and cancellation.
+- **C# (MSTest), through the ABI, on all three frameworks:** DLL loading and the
+  ABI version, struct layout, error propagation, buffer bounds, handle lifetimes,
+  batch evaluation, STL bytes, and callbacks. The callback tests include forcing
+  full garbage collections during a native call, and four concurrent meshes.
+- **Packaged:** one end-to-end run through the restored `.nupkg`.
+
+There is no reference mesh to compare against, so mesh tests check properties
+any correct closed mesh must have:
+
+- every index is in range, and no triangle reuses a vertex;
+- every vertex lies within one cell of the true surface;
+- **directed edges:** each appears exactly once and its reverse also appears,
+  which catches holes, flipped triangles and non-manifold edges;
+- the **signed volume** is positive (outward winding) and close to the analytic
+  volume.
 
 ## Open questions
 
-*Things not yet decided, with the tradeoff sketched so the decision can be made rather than drifted into.*
+- **Automatic bounds.** The options are a bounding box per node (exact, but
+  every new primitive and transform must supply one) or a coarse search of the
+  field (no per-node work, but it can miss thin features). Per-node boxes are
+  the likely choice.
+- **Recursive teardown.** Releasing a very deeply nested expression recurses
+  once per level and could exhaust the stack. The fix is an explicit worklist
+  instead of recursion, which is only worth doing if deep expressions become a
+  real use case.
+- **More platforms.** The native payload would move into a separate
+  `Goop.runtime.<rid>` package per platform, which is the pattern larger native
+  libraries use.

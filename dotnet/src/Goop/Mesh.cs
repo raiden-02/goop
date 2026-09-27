@@ -10,11 +10,6 @@ namespace Goop {
     // the native side: it has a single owner and is released exactly once.
     // ======================================================================
 
-    // TODO: consider exposing triangles as a structured view (a Triangle
-    //       struct, or an enumerable of vertex triples) alongside the two flat
-    //       arrays. Nicer to consume; allocates more. The flat arrays stay the
-    //       fast path either way.
-
     /// <summary>
     /// A triangle mesh of a shape's surface: a list of vertices, and three vertex
     /// indices per triangle.

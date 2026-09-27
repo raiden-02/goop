@@ -1,9 +1,8 @@
 /// @file goop.h
-/// @brief The entire public surface of goop.dll.
+/// @brief The entire public surface of goop_native.dll.
 ///
 /// This is the ONLY header a consumer ever sees, and the C# side mirrors it one
-/// declaration at a time. Finished declarations sit above the TODO block;
-/// the block lists what has not landed yet.
+/// declaration at a time.
 ///
 /// Every declaration in this header carries a Doxygen `///` comment. That is a
 /// house rule, not decoration: this file IS the documentation for anyone
@@ -57,9 +56,9 @@
 
 /// @brief Binary-compatibility version of this ABI.
 ///
-/// Bumped whenever the ABI changes in a way that breaks existing callers. The
-/// managed side reads goop_get_version() at startup and refuses to run against
-/// a DLL it does not recognise - see milestone M9.
+/// Bumped whenever the ABI changes in a way that breaks existing callers.
+/// goop_get_version() returns the value compiled into the DLL, so a caller can
+/// compare it with the value it was built against.
 #define GOOP_ABI_VERSION 1
 
 #ifdef __cplusplus
@@ -190,7 +189,7 @@ GOOP_API int32_t goop_shape_smooth_union(goop_shape* a,
 /// @brief Signed distance from one point to the shape's surface.
 ///
 /// Negative inside, zero on the surface, positive outside. For many points use
-/// goop_shape_eval_batch (M3) instead: one call per point pays the P/Invoke
+/// goop_shape_eval_batch instead: one call per point pays the P/Invoke
 /// transition cost every time.
 ///
 /// @param shape The shape to query. Must not be NULL. Not retained.
@@ -346,25 +345,6 @@ GOOP_API int32_t goop_mesh_copy_indices(const goop_mesh* mesh,
 /// @brief Destroys the mesh.
 /// @param mesh May be NULL, in which case this does nothing.
 GOOP_API void goop_mesh_release(goop_mesh* mesh);
-
-/* -------------------------------------------------------------------------
- * TODO: everything below this line, added milestone by milestone.
- * Each declaration gets its own /// block: @brief, @param for every argument
- * (including which side owns it), @return, and a note on thread safety where
- * it is not obvious.
- * -------------------------------------------------------------------------
- *
- * --- shapes: opaque, reference counted -----------------------------------
- *
- * TODO: primitive constructors still to add: goop_shape_box,
- *       goop_shape_torus, goop_shape_cylinder. Each takes its parameters plus
- *       a goop_shape** out-parameter and returns goop_status.
- *       goop_shape_sphere is already declared above.
- *
- * TODO: the remaining transforms: goop_shape_rotate, goop_shape_scale,
- *       goop_shape_twist. Same ownership rules as goop_shape_translate.
- *
- */
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -2,7 +2,7 @@
 
   <!-- The managed half of Goop: a fluent, IDisposable wrapper over the C ABI in
        native/include/goop/goop.h. This assembly contains no native code and
-       does not build goop.dll - it only knows how to call it. -->
+       does not build goop_native.dll - it only knows how to call it. -->
 
   <PropertyGroup>
     <!-- Three target frameworks on purpose, and a change has to pass all three.
@@ -23,15 +23,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
-  <!-- Package metadata. Placeholders for now; the actual packaging milestone is
-       M8, and Goop.PackageTests exists to consume the result. -->
+  <!-- Package metadata. Goop.PackageTests consumes the result. -->
   <PropertyGroup>
     <PackageId>Goop</PackageId>
     <Version>0.1.0</Version>
     <Authors>raiden-02</Authors>
     <Description>A tiny signed-distance-field sculpting kernel: shapes that melt into each other, meshed to triangles and exported as STL.</Description>
     <PackageTags>sdf;signed-distance-field;csg;mesh;stl;interop</PackageTags>
-    <!-- Nothing is published anywhere yet. -->
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
@@ -64,41 +62,53 @@
   </ItemGroup>
 
   <!-- =====================================================================
-       TODO (MILESTONE M8): pack goop.dll into the NuGet package.
+       Packing the NATIVE DLL.
 
-       Deliberately NOT implemented yet. Right now the native DLL reaches the
-       test and sample projects through a plain copy target (see
-       Goop.Tests.csproj), which is enough for local development. Shipping it in
-       a package is a separate problem with its own decisions to make.
+       A managed-only package is just lib/<tfm>/Goop.dll. Ours must also carry
+       goop_native.dll, and the two consumer worlds find native DLLs
+       differently:
 
-       The shape it needs to take:
+         * .NET 8 / .NET 10 (CoreCLR) read the package's runtimes/<rid>/native/
+           folder. The SDK copies it into the consumer's output and records it
+           in <app>.deps.json, and the host resolves the P/Invoke from there.
 
-         <ItemGroup>
-           <None Include="$(GoopNativeBinDir)goop.dll"
-                 Pack="true"
-                 PackagePath="runtimes/win-x64/native/"
-                 Visible="false" />
-         </ItemGroup>
+         * .NET Framework 4.8 knows nothing about runtimes/ or deps.json. The
+           OS loader simply looks next to the executable. So the package ships a
+           small build/net48/Goop.targets that NuGet imports into net48
+           consumers, which copies the DLL beside their output.
 
-       Things to work out before switching that on:
+       Resulting package layout:
+         lib/net48/Goop.dll   lib/net8.0/Goop.dll   lib/net10.0/Goop.dll
+         runtimes/win-x64/native/goop_native.dll
+         build/net48/Goop.targets   buildTransitive/net48/Goop.targets
 
-         * runtimes/win-x64/native/ is the RID-specific convention. The SDK only
-           resolves it for consumers that are RID-aware. A plain net48 consumer
-           with no RuntimeIdentifier will NOT get the DLL copied to its output -
-           that usually needs a build/Goop.targets inside the package doing the
-           copy explicitly, shipped under build/ and build/net48/.
+       (buildTransitive: so a consumer's consumer also gets the copy.)
 
-         * Packing requires the native build to have already run for the
-           matching configuration. Decide whether `dotnet pack` should fail
-           loudly when goop.dll is missing (it should) rather than silently
-           producing a package that throws DllNotFoundException at run time.
-
-         * One package with a win-x64 payload, or a separate Goop.runtime.win-x64
-           package that Goop depends on? The second is how the bigger libraries
-           do it and is the answer if other platforms ever appear.
-
-         * PackageReadmeFile, license, and repository metadata all want filling
-           in before this is published anywhere.
+       Future: if other platforms ever appear, the native payload moves into a
+       separate Goop.runtime.win-x64 package that Goop depends on - the pattern
+       the larger libraries use.
        ===================================================================== -->
+  <PropertyGroup>
+    <!-- Repo-root artifacts/packages: the local folder feed that
+         Goop.PackageTests restores from. Git-ignored. -->
+    <PackageOutputPath>$(MSBuildThisFileDirectory)..\..\..\artifacts\packages\</PackageOutputPath>
+    <!-- NU5100 warns about a DLL outside lib/. Ours is NATIVE and belongs in
+         runtimes/, so the warning does not apply. -->
+    <NoWarn>$(NoWarn);NU5100</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(GoopNativeBinDir)goop_native.dll" Pack="true" PackagePath="runtimes/win-x64/native/" Visible="false" />
+    <None Include="build\Goop.targets" Pack="true" PackagePath="build/net48/;buildTransitive/net48/" />
+  </ItemGroup>
+
+  <!-- A package without its native DLL restores fine and then throws
+       DllNotFoundException on the first call - in someone else's app. Fail the
+       pack HERE instead, loudly. -->
+  <Target Name="GoopRequireNativeForPack" BeforeTargets="GenerateNuspec">
+    <Error Condition="!Exists('$(GoopNativeBinDir)goop_native.dll')"
+           Code="GOOP0002"
+           Text="Cannot pack Goop: the native library is missing at '$(GoopNativeBinDir)goop_native.dll'. Build the native side first (scripts\build.ps1 -Configuration $(Configuration))." />
+  </Target>
 
 </Project>

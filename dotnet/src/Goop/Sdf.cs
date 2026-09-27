@@ -16,25 +16,6 @@ namespace Goop {
     // design: factories start a chain, instance methods continue it.
     // ======================================================================
 
-    // TODO: the remaining primitives, once the native side has them:
-    //
-    //         Box(double sizeX, double sizeY, double sizeZ)
-    //         Torus(double majorRadius, double minorRadius)
-    //         Cylinder(double radius, double height)
-    //
-    //       Same shape as Sphere below: validate in C#, call the native
-    //       constructor, wrap the handle with Shape.FromNative.
-    //
-    // TODO: decide the Box convention and document it in the XML docs: are the
-    //       three arguments FULL extents or HALF extents? The native distance
-    //       function wants half extents. Pick one, say so, and convert in
-    //       exactly one place - this is the kind of ambiguity that silently
-    //       produces shapes twice the intended size.
-    //
-    // TODO (stretch): Gyroid(). Not a real SDF at all - an implicit surface
-    //       whose field is only a rough distance bound - which makes it a good
-    //       test of whether the mesher copes with fields that lie.
-
     /// <summary>
     /// Factory methods for primitive shapes. Every Goop expression starts here.
     /// </summary>

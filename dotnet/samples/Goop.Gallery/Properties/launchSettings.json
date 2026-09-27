@@ -11,7 +11,7 @@
     "With it on you can set a breakpoint in C# at the DllImport call site, step",
     "in, and land in the C++ function with a real call stack across the boundary.",
     "",
-    "It works because CopyGoopNativeLibrary drops goop.pdb next to goop.dll in",
+    "It works because CopyGoopNativeLibrary drops goop_native.pdb next to goop_native.dll in",
     "the output directory. Delete the pdb and you get addresses instead of lines.",
     "",
     "Cost: mixed-mode sessions start noticeably slower. That is the trade.",

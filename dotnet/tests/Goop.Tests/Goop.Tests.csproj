@@ -41,8 +41,8 @@
        DllNotFoundException, which says nothing about the real problem.
 
        WHY IT IS A WARNING, NOT AN ERROR: `dotnet build` must still succeed on a
-       clean clone before anyone has run CMake. Milestone M0 is "both sides
-       build", and the two sides build independently. Tests that actually need
+       clean clone before anyone has run CMake: the two sides build
+       independently. Tests that actually need
        the DLL will fail loudly on their own, with a better message than a build
        break would give.
 

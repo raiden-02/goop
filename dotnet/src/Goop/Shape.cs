@@ -10,21 +10,6 @@ namespace Goop {
     // in C++; this class is a name, a lifetime, and a fluent grammar.
     // ======================================================================
 
-    // TODO: the remaining fluent transforms, same ownership rules as Translate:
-    //
-    //         Rotate(Vec3 axis, double angleRadians)
-    //         Scale(double factor)
-    //         Twist(double amountPerUnit)
-    //
-    //       Decide whether angles are radians or degrees and be consistent.
-    //       Radians matches the native side; degrees is friendlier at a call
-    //       site. If both, name them differently (RotateDegrees) rather than
-    //       overloading on meaning.
-    //
-    // TODO: automatic bounds. ToMesh needs the caller to say where the shape
-    //       is. Once nodes can report a bounding box, add ToMesh(resolution)
-    //       that picks the box itself.
-
     /// <summary>
     /// A signed distance field: a shape that can report, for any point, how far
     /// that point is from its surface. Negative inside, zero on the surface,

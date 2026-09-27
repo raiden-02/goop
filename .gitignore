@@ -7,12 +7,14 @@
 
 # --- Goop's own build outputs ----------------------------------------------
 # The CMake build tree. Everything under it is regenerable from CMakeLists.txt,
-# including the FetchContent clone of Catch2 and goop.dll itself.
-build/
-build-*/
+# including the FetchContent clone of Catch2 and goop_native.dll itself.
+# Leading / anchors it to the repo ROOT: a bare build/ would also swallow
+# dotnet/src/Goop/build/, which holds the Goop.targets shipped in the package.
+/build/
+/build-*/
 
 # `dotnet pack` output and the local folder feed that Goop.PackageTests
-# restores from (milestone M8).
+# restores from.
 artifacts/
 
 # Generated STL files from the gallery sample. These can be tens of megabytes

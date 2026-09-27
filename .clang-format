@@ -59,8 +59,8 @@ AlignTrailingComments: true
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 
-# Keep comment blocks as written. The stub files in this repo are mostly prose
-# and reflowing them would wreck the deliberate line breaks.
+# Keep comment blocks as written. Many comments here are deliberate prose,
+# and reflowing them would wreck their line breaks.
 ReflowComments: false
 
 BinPackArguments: false

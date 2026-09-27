@@ -2,21 +2,27 @@
 
 *Sculpt shapes that melt into each other, then print them.*
 
-**Status: pre-alpha.** Both sides build and test. Sphere, CSG, translate,
-evaluation, meshing, and STL export are in. `ToMesh` takes an explicit box.
-Box, torus, cylinder, rotate, scale, twist, progress callbacks, automatic
-bounds, and packaging are not.
+A small signed-distance-field kernel: a C++17 core behind a stable C ABI,
+driven from C# through a fluent API on .NET Framework 4.8, .NET 8 and .NET 10.
+Shapes are combined with CSG and smooth blends, meshed with surface nets, and
+exported as STL.
 
 ```csharp
-using var shape = Sdf.Sphere(1.0).SmoothUnion(Sdf.Box(0.8, 1.4, 0.8), 0.3);
-using var mesh  = shape.ToMesh(resolution: 128, progress: p => Console.Write($"\r{p:P0}"));
+using var blob = Sdf.Sphere(1.0)
+                    .SmoothUnion(Sdf.Sphere(0.8).Translate(2.0, 0, 0), 1.2);
+
+using var mesh = blob.ToMesh(new Vec3(-1.5, -1.5, -1.5), new Vec3(3.2, 1.5, 1.5),
+                             resolution: 128,
+                             progress: p => Console.Write($"\r{p:P0}"));
+
 mesh.SaveStl("blob.stl");
 ```
 
-The snippet above is the API this library is heading toward. `Sdf.Sphere`,
-`SmoothUnion`, `Translate`, `ToMesh(min, max, resolution)`, and `SaveStl`
-exist. `Sdf.Box`, a bounds-free `ToMesh`, and the progress callback do not,
-so that program does not build yet.
+![Two spheres apart, then melted together with a smooth union](gallery/blob.png)
+
+**Status:** experimental. The whole pipeline works end to end on Windows x64;
+the shape vocabulary is still small. See [what's in](#features) and
+[what's not](#not-yet-implemented).
 
 ## What is an SDF?
 
@@ -60,7 +66,8 @@ in `native/src/shape.cpp`.
 ## Build
 
 One command does everything — configure, build, both test suites, all three
-target frameworks:
+target frameworks, then packs the NuGet package and tests it the way an outside
+project would consume it:
 
 ```powershell
 .\scripts\build.ps1
@@ -82,7 +89,14 @@ ctest --preset debug
 # managed: build and test net48, net8.0 and net10.0
 dotnet build dotnet\Goop.sln --configuration Debug
 dotnet test  dotnet\Goop.sln --configuration Debug --settings dotnet\goop.runsettings
+
+# package: pack to artifacts\packages, then consume it from a separate project
+dotnet pack dotnet\src\Goop\Goop.csproj --configuration Debug
+dotnet test dotnet\tests\Goop.PackageTests --configuration Debug --settings dotnet\goop.runsettings
 ```
+
+`Goop.PackageTests` is deliberately **not** in `Goop.sln`: it references Goop only
+as a package, which does not exist until `dotnet pack` has run.
 
 Formatting:
 
@@ -146,21 +160,39 @@ core is a static library so the Catch2 tests can link it and use real C++ types,
 while the C ABI is tested from C# — because the only honest test of an ABI is a
 foreign caller.
 
-## Roadmap
+## Features
 
-- [x] **M0** — Both sides build. `goop_native.dll` compiles, `ctest` runs, `dotnet build` succeeds for `net48`, `net8.0`, and `net10.0`.
-- [x] **M1** — C# creates a sphere handle and evaluates a single distance on `net48`, `net8.0`, and `net10.0`, establishing the P/Invoke path and the x64 loading contract.
-- [x] **M2** — Node graph with reference-counted ownership (`goop_shape_retain` / `goop_shape_release`, `ShapeSafeHandle`) and the CSG operators on top of it.
-- [x] **M3** — Batch evaluation into caller-allocated buffers. Points in, distances out, no per-point transition cost.
-- [x] **M4** — Surface-nets mesher, public `Mesh` and `Shape.ToMesh`, copy-out, and STL export. The gallery writes `blob.stl`. `ToMesh` still requires an explicit box. Progress is M6.
-- [x] **M5** — Error model: `goop_status` codes plus thread-local last-error message, mapped back into real .NET exceptions. Tests still missing for null handle, out of memory, cancelled, and internal.
-- [ ] **M6** — Managed progress delegate and its lifetime, so a GC mid-mesh does not crash. Native progress and cancellation are already tested.
-- [x] **M7** — C# `MeshOracle`: well-formed, watertight, on the surface, and volume. `MeshTests` uses it. Still open: degenerate triangles by area, and dumping a failing mesh to STL.
-- [ ] **M8** — `dotnet pack`, and `Goop.PackageTests` restoring the packed `.nupkg` from a local feed to prove an outside consumer can actually use it.
-- [ ] **M9** — ABI compatibility testing: verify that a mismatch between `goop_native.dll` and `Goop.dll` is detected via `GOOP_ABI_VERSION` at load time rather than surfacing later as a crash.
-- [ ] **Stretch** — Gyroid and twist shapes; a turntable render for the gallery.
+- **Shapes:** sphere.
+- **Operations:** union, intersection, subtraction, smooth union (polynomial smooth minimum), translation.
+- **Evaluation:** single point, or a whole batch of points in one native call.
+- **Meshing:** surface nets over a regular grid, with progress reporting and cancellation. Output is watertight and consistently wound (counter-clockwise from outside).
+- **Export:** binary STL.
+- **Interop:** a narrow C ABI (`goop.h`) with opaque, reference-counted handles, caller-allocated buffers and status codes; `SafeHandle` ownership, pinned-span batch calls and exception-safe callbacks on the C# side.
+- **Packaging:** a single NuGet package carrying the native DLL for all three target frameworks, verified by a test project that consumes the packed `.nupkg`.
+
+Design decisions and their reasoning are in [docs/design.md](docs/design.md).
+
+## Not yet implemented
+
+- More primitives: box, torus, cylinder.
+- More transforms: rotation, uniform scale, twist.
+- Automatic bounds: `ToMesh` currently needs the caller to supply a box that contains the shape.
+- Sharper meshing: dual contouring's per-cell least-squares vertex placement (the "QEF"), so CSG edges stay crisp instead of bevelled.
+- Sparse sampling: every grid sample is evaluated today; a narrow band or octree around the surface would make high resolutions affordable.
+- A load-time check that `Goop.dll` and `goop_native.dll` agree on `GOOP_ABI_VERSION`.
+- Platforms other than Windows x64.
 
 ## Gallery
 
-*(The gallery sample writes STL files into `gallery/output/`, which is
-git-ignored. Screenshots of those meshes are not committed yet.)*
+The same two spheres, first combined with a plain union, then with a smooth union:
+
+![Plain union versus smooth union](gallery/blob.png)
+
+The blend radius `k` controls how far the melt reaches. Below a threshold set by
+the gap between the surfaces the spheres stay apart; above it they join, and the
+neck thickens as `k` grows:
+
+![Smooth union at k = 0.5, 1.0 and 1.5](gallery/blend_sweep.png)
+
+Regenerate the meshes with `dotnet run --project dotnet\samples\Goop.Gallery`; the
+STL files land in `gallery/output/`.

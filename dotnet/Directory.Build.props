@@ -29,14 +29,14 @@
 
     <!-- x64 is FORCED everywhere, and this is not a preference.
 
-         goop.dll is a 64-bit native library. A 32-bit process physically cannot
+         goop_native.dll is a 64-bit native library. A 32-bit process physically cannot
          load a 64-bit DLL: the loader rejects it and the CLR surfaces that as
          BadImageFormatException, which is a famously unhelpful message for what
          is actually a bitness mismatch.
 
          The trap is specific to .NET Framework. net48 executables default to
          AnyCPU with Prefer32Bit=true, so on a 64-bit machine they launch as
-         32-bit processes and every P/Invoke into goop.dll fails at the first
+         32-bit processes and every P/Invoke into goop_native.dll fails at the first
          call. Setting PlatformTarget=x64 and Prefer32Bit=false makes the
          bitness explicit and matching. Goop.Gallery prints
          Environment.Is64BitProcess on startup precisely so this is visible
@@ -46,9 +46,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- Where the CMake build drops goop.dll. Must stay in sync with the
+    <!-- Where the CMake build drops goop_native.dll. Must stay in sync with the
          CMAKE_RUNTIME_OUTPUT_DIRECTORY set in the top-level CMakeLists.txt,
-         which produces build/bin/<Config>/goop.dll. Multi-config generators
+         which produces build/bin/<Config>/goop_native.dll. Multi-config generators
          (Visual Studio) add the <Config> segment themselves.
 
          Test and sample projects use this to copy the native DLL next to their

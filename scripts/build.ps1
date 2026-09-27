@@ -9,10 +9,12 @@
         1. cmake configure   -> ./build      (x64)
         2. cmake --build                     (the chosen configuration)
         3. ctest                             (the Catch2 suite)
-        4. dotnet build      dotnet/Goop.sln (net48 and net8.0)
-        5. dotnet test       dotnet/Goop.sln (net48 and net8.0)
+        4. dotnet build      dotnet/Goop.sln (net48, net8.0, net10.0)
+        5. dotnet test       dotnet/Goop.sln
+        6. dotnet pack       -> artifacts/packages/Goop.0.1.0.nupkg
+        7. package test      Goop.PackageTests restores the .nupkg like a stranger would
 
-    Steps 3 and 5 are skipped with -SkipTests.
+    Steps 3, 5 and 7 are skipped with -SkipTests.
 
     The Visual Studio generator is NOT specified. CMake picks the newest
     installed Visual Studio itself and this script only passes the architecture
@@ -24,7 +26,7 @@
     $(Configuration), so a Release managed build looks for a Release goop_native.dll.
 
 .PARAMETER SkipTests
-    Skip both test steps (ctest and dotnet test). Builds only.
+    Skip every test step (ctest, dotnet test, package test). Still packs.
 
 .EXAMPLE
     .\scripts\build.ps1
@@ -49,6 +51,8 @@ $Solution    = Join-Path $RepoRoot 'dotnet\Goop.sln'
 # Pins the VSTest host to x64. Without it VSTest may launch a 32-bit host,
 # which cannot load the 64-bit goop_native.dll - see the comment in the file itself.
 $RunSettings = Join-Path $RepoRoot 'dotnet\goop.runsettings'
+$GoopProject = Join-Path $RepoRoot 'dotnet\src\Goop\Goop.csproj'
+$PackageTests = Join-Path $RepoRoot 'dotnet\tests\Goop.PackageTests'
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -165,7 +169,7 @@ an SDK of 8.0 or newer can build both.
 # 1. cmake configure
 # ---------------------------------------------------------------------------
 
-Write-Step "1/5  cmake configure -> $BuildDir"
+Write-Step "1/7  cmake configure -> $BuildDir"
 
 & $cmake -S $RepoRoot -B $BuildDir -A x64
 Assert-LastExitCode -Step 'cmake configure' -Hint @"
@@ -181,7 +185,7 @@ If the cache is stale, delete the build directory and try again:
 # 2. cmake build
 # ---------------------------------------------------------------------------
 
-Write-Step "2/5  cmake --build ($Configuration)"
+Write-Step "2/7  cmake --build ($Configuration)"
 
 & $cmake --build $BuildDir --config $Configuration
 Assert-LastExitCode -Step "cmake --build ($Configuration)" -Hint @"
@@ -209,11 +213,11 @@ managed projects derive GoopNativeBinDir from exactly this path.
 
 if ($SkipTests)
 {
-    Write-Step '3/5  ctest - SKIPPED (-SkipTests)'
+    Write-Step '3/7  ctest - SKIPPED (-SkipTests)'
 }
 else
 {
-    Write-Step "3/5  ctest ($Configuration)"
+    Write-Step "3/7  ctest ($Configuration)"
 
     & $ctest --test-dir $BuildDir --build-config $Configuration --output-on-failure
     Assert-LastExitCode -Step "ctest ($Configuration)" -Hint @"
@@ -226,7 +230,7 @@ reports no tests at all, the build was configured with GOOP_BUILD_TESTS=OFF.
 # 4. dotnet build
 # ---------------------------------------------------------------------------
 
-Write-Step "4/5  dotnet build ($Configuration, net48 + net8.0 + net10.0)"
+Write-Step "4/7  dotnet build ($Configuration, net48 + net8.0 + net10.0)"
 
 & dotnet build $Solution --configuration $Configuration --nologo
 Assert-LastExitCode -Step "dotnet build ($Configuration)" -Hint @"
@@ -243,11 +247,11 @@ assemblies, running does not).
 
 if ($SkipTests)
 {
-    Write-Step '5/5  dotnet test - SKIPPED (-SkipTests)'
+    Write-Step '5/7  dotnet test - SKIPPED (-SkipTests)'
 }
 else
 {
-    Write-Step "5/5  dotnet test ($Configuration, net48 + net8.0 + net10.0)"
+    Write-Step "5/7  dotnet test ($Configuration, net48 + net8.0 + net10.0)"
 
     & dotnet test $Solution --configuration $Configuration --no-build --nologo --settings $RunSettings
     Assert-LastExitCode -Step "dotnet test ($Configuration)" -Hint @"
@@ -257,6 +261,46 @@ target in the test project and that goop_native.dll exists at:
   $nativeDll
 A BadImageFormatException means the test process is 32-bit; check PlatformTarget
 and Prefer32Bit in dotnet/Directory.Build.props.
+"@
+}
+
+# ---------------------------------------------------------------------------
+# 6. dotnet pack
+# ---------------------------------------------------------------------------
+
+Write-Step "6/7  dotnet pack ($Configuration) -> artifacts/packages"
+
+& dotnet pack $GoopProject --configuration $Configuration --no-build --nologo
+Assert-LastExitCode -Step "dotnet pack ($Configuration)" -Hint @"
+Packing failed. GOOP0002 means goop_native.dll was missing for this
+configuration - the package would have shipped without its native library.
+"@
+
+# ---------------------------------------------------------------------------
+# 7. package test - consume the .nupkg exactly as an outside project would
+# ---------------------------------------------------------------------------
+
+if ($SkipTests)
+{
+    Write-Step '7/7  package test - SKIPPED (-SkipTests)'
+}
+else
+{
+    Write-Step "7/7  package test ($Configuration): restore Goop from the .nupkg, then run"
+
+    # NuGet caches packages BY VERSION. We just repacked 0.1.0, so a cached copy
+    # from an earlier run would be served instead of the new one and the test
+    # would pass against a stale package. Goop.PackageTests uses a private cache
+    # (RestorePackagesPath); drop Goop from it so the restore extracts the
+    # package we just built.
+    Remove-Item -Recurse -Force (Join-Path $PackageTests 'obj\nuget-packages\goop') -ErrorAction SilentlyContinue
+
+    & dotnet test $PackageTests --configuration $Configuration --nologo --settings $RunSettings
+    Assert-LastExitCode -Step "package test ($Configuration)" -Hint @"
+The packed Goop did not work for an outside consumer. A DllNotFoundException
+means goop_native.dll did not reach that target framework's output: for net48
+check build/Goop.targets in the package, for net8.0/net10.0 check
+runtimes/win-x64/native/ in the package.
 "@
 }
 

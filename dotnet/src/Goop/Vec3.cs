@@ -9,15 +9,6 @@ namespace Goop {
     // goop_mesh_copy_vertices with no marshalling at all.
     // ======================================================================
 
-    // TODO: the arithmetic the fluent API still needs: +, -, scalar *, Length.
-    //       Construction and ToString are already here. Resist adding a full
-    //       vector maths library; the real arithmetic happens in C++.
-    //
-    // TODO: value equality. Override Equals and GetHashCode, and think about
-    //       whether == should be exact bitwise comparison (defensible for a
-    //       struct) or tolerance-based (never do this in operator==; put it in
-    //       a separate ApproximatelyEquals used by tests).
-
     /// <summary>
     /// A point or vector in 3D space. Three <c>double</c> fields, in the same
     /// order and size as <c>goop_vec3</c> in the native header, so a value can

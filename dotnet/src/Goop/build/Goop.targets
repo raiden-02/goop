@@ -1,0 +1,25 @@
+<Project>
+
+  <!-- ===================================================================
+       Shipped INSIDE the Goop package, at build/net48/ and
+       buildTransitive/net48/. NuGet imports it automatically into any
+       .NET Framework project that references Goop.
+
+       .NET Framework has no idea what the package's runtimes/ folder is: it
+       loads native DLLs the old way, from beside the executable. So this copies
+       goop_native.dll there.
+
+       .NET 8+ consumers never see this file - NuGet only imports build/net48/
+       into net48 projects - and resolve the DLL from runtimes/ instead.
+
+       The path is relative to THIS file inside the extracted package:
+         <package>/build/net48/Goop.targets  ->  ../../runtimes/win-x64/native/
+       =================================================================== -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\win-x64\native\goop_native.dll"
+          Link="goop_native.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+
+</Project>

@@ -16,13 +16,6 @@ namespace Goop {
     // managed API never asks its users to check return codes.
     // ======================================================================
 
-    // TODO: GoopException(string message, Exception inner) so a caller can chain
-    //       a managed failure onto the native one. The status-and-message
-    //       constructor already exists.
-    //
-    // TODO: [Serializable] and the serialization constructor if targeting net48
-    //       properly - legacy, but net48 consumers may still expect it.
-
     /// <summary>Mirrors <c>goop_status</c> in goop.h. Values must never be renumbered.</summary>
     internal enum GoopStatus : int {
         Ok = 0,

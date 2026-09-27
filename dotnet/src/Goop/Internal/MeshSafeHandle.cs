@@ -9,7 +9,7 @@ namespace Goop.Internal {
     // else on the native side ever holds a mesh.
     // ======================================================================
 
-    // TODO (M4c): meshes can be large - a 256^3 grid produces a lot of
+    // TODO: meshes can be large - a 256^3 grid produces a lot of
     //       triangles - so the difference between "released when Dispose is
     //       called" and "released when the finalizer eventually gets round to
     //       it" is real memory pressure. Consider GC.AddMemoryPressure with the

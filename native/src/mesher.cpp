@@ -39,8 +39,7 @@ namespace goop {
 // TODO: narrow-band sampling. Every sample in the grid is evaluated, including
 //       the deep interior and far exterior, where nothing interesting happens.
 //       Only cells near the surface matter; an octree or a narrow band around
-//       it would make high resolutions affordable. Only worth doing once this
-//       naive version is correct and covered by tests - which it now is.
+//       it would make high resolutions affordable.
 
 // TODO: sharper vertex placement. Averaging edge crossings rounds off sharp
 //       corners (a CSG box edge comes out bevelled). Proper dual contouring
@@ -50,8 +49,8 @@ namespace goop {
 namespace {
 
 // ---------------------------------------------------------------------------
-// Tiny Vec3 helpers, local to the mesher. (shape.hpp's TODO covers adding real
-// operators to Vec3; until then these keep the maths below readable.)
+// Tiny Vec3 helpers, local to the mesher. goop::Vec3 is deliberately a plain
+// struct with no operators; these keep the maths below readable.
 // ---------------------------------------------------------------------------
 
 Vec3 add(const Vec3& a, const Vec3& b) {

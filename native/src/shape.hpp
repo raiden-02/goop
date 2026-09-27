@@ -6,9 +6,9 @@
 // inside, zero on the surface, positive outside.
 //
 // Everything in Goop is built from three kinds of node:
-//   * primitives  - a sphere, box, torus or cylinder, evaluated analytically
+//   * primitives  - analytic shapes such as the sphere
 //   * combinators - CSG union/subtract/intersect, plus the smooth variants
-//   * transforms  - translate/rotate/scale/twist, which warp the query point
+//   * transforms  - such as translate, which warp the query point
 //                   on the way in rather than moving any geometry
 //
 // The graph is a DAG rather than a tree because a subexpression can be reused
@@ -25,28 +25,6 @@
 #include <atomic>
 
 namespace goop {
-
-// TODO: Vec3 operations the distance functions actually need: +, -, scalar *,
-//       dot, length, abs, componentwise max/min. The three-double layout is
-//       already here and must stay identical to goop_vec3.
-
-// TODO: primitive nodes still to add: Box(half extents), Torus(major, minor),
-//       Cylinder(radius, height). Sphere is already declared below.
-//       Inigo Quilez's distance-function
-//       articles are the reference for the formulae; note which of them give an
-//       exact distance and which only a lower bound, because the mesher's
-//       step-size assumptions depend on the difference.
-
-// TODO: the remaining transform nodes, each a UnaryShape like Translate below:
-//       Rotate applies the inverse rotation to the query point, Scale divides
-//       in and multiplies the result out (uniform scale only, or the field
-//       stops being a true distance), Twist rotates about an axis by an amount
-//       proportional to the coordinate along it. Note that Twist is a
-//       non-isometric warp, so its result is a distance BOUND, not an exact
-//       distance - the mesher has to tolerate that.
-
-// TODO: an axis-aligned bounding box query per node, so the mesher can pick a
-//       grid that contains the surface instead of guessing.
 
 struct Vec3 {
     double x, y, z;

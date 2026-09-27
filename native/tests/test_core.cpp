@@ -290,7 +290,3 @@ TEST_CASE("mesher: returning false from progress cancels at once and leaves the 
     CHECK(m.vertices.empty());
     CHECK(m.indices.empty());
 }
-
-// TODO: the remaining transforms. Rotation must not change the distance at the
-//       origin. Uniform scale by s must scale distances by s. Twist yields a
-//       distance BOUND, so only assert that it never overestimates.

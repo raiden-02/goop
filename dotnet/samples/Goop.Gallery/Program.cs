@@ -61,17 +61,6 @@ namespace Goop.Gallery {
             Console.WriteLine("Open the .stl files in any 3D viewer (Windows: 3D Viewer, or drag onto");
             Console.WriteLine("https://www.viewstl.com). Start with blob_apart.stl next to blob.stl.");
 
-            // TODO: the rest of the showcase, as primitives and transforms land:
-            //   * a torus subtracted from a box, for plain CSG
-            //   * a twisted column, to exercise the non-isometric transform and
-            //     see how the mesher copes with a field that only bounds the
-            //     true distance
-            //   * the same shape at a deliberately low resolution next to a high
-            //     one, to make the grid visible
-            //
-            // TODO: accept the resolution and an output directory on the command
-            //       line rather than ignoring args, so the gallery can be
-            //       regenerated cheaply at draft quality.
 
             return 0;
         }

@@ -21,14 +21,6 @@ namespace Goop.Tests {
     // the far side of the ABI, after the count-then-copy round trip.
     // ======================================================================
 
-    // TODO: AssertNoDegenerateTriangles by AREA, not just repeated indices. Two
-    //       cell vertices can land almost on top of each other, giving a sliver
-    //       with three distinct indices but near-zero area. The tolerance should
-    //       be relative to the cell size, not absolute.
-
-    // TODO: a helper to dump a failing mesh to gallery/output/ as STL, so a
-    //       failure can be looked at rather than only read about.
-
     /// <summary>Reusable mesh-quality assertions.</summary>
     internal static class MeshOracle {
 

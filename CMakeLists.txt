@@ -18,7 +18,7 @@ option(GOOP_BUILD_TESTS "Build the C++ core unit tests (Catch2 v3)" ON)
 # native DLL with a single well-known path. Multi-config generators (Visual
 # Studio) append the configuration name automatically, so the DLL ends up at:
 #
-#     build/bin/<Config>/goop.dll     e.g. build/bin/Debug/goop.dll
+#     build/bin/<Config>/goop_native.dll     e.g. build/bin/Debug/goop_native.dll
 #
 # dotnet/Directory.Build.props points GoopNativeBinDir at exactly that path.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

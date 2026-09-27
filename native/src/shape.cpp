@@ -12,23 +12,10 @@
 
 namespace goop {
 
-// TODO: Vec3 operations - or keep them inline in the header if they turn out to
-//       be small enough that call overhead dominates the arithmetic.
-
-// TODO: primitive distance functions still to add: box, torus, cylinder.
-//       Sphere::eval is below. Same sign rule as the sphere tests: negative
-//       inside, zero on the surface, positive outside.
-
-// TODO: the remaining transforms (Rotate, Scale, Twist) - the point warp on
-//       the way in, and whatever correction the returned distance needs on the
-//       way out. Translate is below.
-
 // TODO: recursive teardown. ~BinaryShape and ~UnaryShape release their children, which may
 //       release theirs, and so on: a very deeply nested expression can overflow
 //       the stack. Either bound the nesting or drive teardown from an explicit
 //       worklist instead of the call stack.
-
-// TODO: bounding box propagation up through combinators and transforms.
 
 // ---------------------------------------------------------------------------
 // Primitives

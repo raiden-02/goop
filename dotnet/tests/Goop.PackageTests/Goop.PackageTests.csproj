@@ -1,36 +1,40 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Consumes Goop the way a STRANGER would: from a packed .nupkg, not from a
-       ProjectReference. See PackageConsumptionTests.cs for why that distinction
-       is the entire point of this project.
+  <!-- Consumes Goop the way a STRANGER would: from the packed .nupkg in the
+       local feed (artifacts/packages), not from a ProjectReference. See
+       PackageConsumptionTests.cs for why that distinction is the entire point.
 
-       Note the absence of a ProjectReference to Goop. That is not an oversight -
-       adding one would defeat the purpose. -->
+       Two deliberate absences:
+         * no ProjectReference to Goop - that would test the build tree, not the
+           package;
+         * no goop_native.dll copy target (Goop.Tests has one) - the native DLL
+           must arrive FROM THE PACKAGE, or the packaging is broken and this
+           project would be lying.
+
+       Also deliberately NOT in Goop.sln: a stranger's app is not part of your
+       solution, and the package does not exist until `dotnet pack` has run, so
+       a solution build on a fresh clone would fail to restore it.
+       scripts/build.ps1 packs, then builds and tests this project on its own. -->
 
   <PropertyGroup>
     <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+
+    <!-- A PRIVATE package cache, not the machine-wide one. NuGet caches by
+         version: repack Goop as the same 0.1.0 and the global cache keeps
+         serving the OLD copy, so this project would silently test a stale
+         package. build.ps1 deletes this folder's goop/ entry before every run. -->
+    <RestorePackagesPath>$(MSBuildProjectDirectory)\obj\nuget-packages</RestorePackagesPath>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Exact version, not a range: test the package that was just built. -->
+    <PackageReference Include="Goop" Version="0.1.0" />
+
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
     <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
   </ItemGroup>
-
-  <!-- TODO (M8): once `dotnet pack` produces Goop.0.1.0.nupkg into the local
-       feed, add the real reference and enable the source in nuget.config:
-
-         <PackageReference Include="Goop" Version="0.1.0" />
-
-       Pin the exact version rather than a range, so this project tests the
-       package that was just built and not whatever happens to be newest.
-
-       Also worth adding here at that point: the native DLL should arrive FROM
-       THE PACKAGE, so this project must NOT have the goop.dll copy target that
-       Goop.Tests and Goop.Gallery use. If a test here passes only because
-       someone copied the DLL in by hand, the packaging is still broken and this
-       project is lying. -->
 
 </Project>

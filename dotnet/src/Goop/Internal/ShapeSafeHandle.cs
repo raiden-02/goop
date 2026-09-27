@@ -12,10 +12,10 @@ namespace Goop.Internal {
     // release while a P/Invoke using it is still in flight.
     // ======================================================================
 
-    // TODO: write the retain rule in docs/design.md. The code already follows
-    //       it: every ShapeSafeHandle owns one count, CSG retains its operands,
-    //       and a fresh node from a constructor is a count the caller already
-    //       owns.
+    // Ownership rule (docs/design.md): every ShapeSafeHandle owns exactly one
+    // reference. A handle returned by a native constructor or combinator
+    // already carries that reference, and combinators retain their operands on
+    // the native side, so nothing in C# ever calls goop_shape_retain.
 
     internal sealed class ShapeSafeHandle : SafeHandleZeroOrMinusOneIsInvalid {
         private ShapeSafeHandle() : base(ownsHandle: true) { }
