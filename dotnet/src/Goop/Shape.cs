@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Goop.Internal;
 
 namespace Goop {
@@ -19,13 +20,6 @@ namespace Goop {
     //       Radians matches the native side; degrees is friendlier at a call
     //       site. If both, name them differently (RotateDegrees) rather than
     //       overloading on meaning.
-    //
-    // TODO (M6): progress and cancellation for ToMesh:
-    //         ToMesh(min, max, resolution, Action<double>? progress = null,
-    //                CancellationToken cancellationToken = default)
-    //       Both funnel into the single native progress function - see
-    //       Internal/ProgressCallback.cs for the delegate lifetime problem that
-    //       makes this the trickiest method in the library.
     //
     // TODO: automatic bounds. ToMesh needs the caller to say where the shape
     //       is. Once nodes can report a bounding box, add ToMesh(resolution)
@@ -292,6 +286,19 @@ namespace Goop {
         /// slower. 64 is a quick draft, 128 is good, 256 is fine detail. Between
         /// <see cref="MinResolution"/> and <see cref="MaxResolution"/>.
         /// </param>
+        /// <param name="progress">
+        /// Optional. Called with a fraction from 0 to 1 as meshing proceeds, about
+        /// once per slice of the grid, ending at exactly 1. It runs synchronously,
+        /// on the thread that called ToMesh - so it must be quick, and it must
+        /// marshal to a UI thread itself if it touches UI. If it throws, meshing
+        /// stops and ToMesh rethrows that same exception.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// Optional. Checked at every progress report; when cancelled, meshing
+        /// stops promptly and ToMesh throws <see cref="OperationCanceledException"/>.
+        /// A cancel that arrives after the last report is too late to matter: the
+        /// finished mesh is returned.
+        /// </param>
         /// <returns>A new mesh. The caller owns it. It does not depend on this shape.</returns>
         /// <remarks>
         /// The box must contain the whole shape. Any part of the surface outside
@@ -300,8 +307,11 @@ namespace Goop {
         /// </remarks>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="resolution"/> is out of range.</exception>
         /// <exception cref="ArgumentException">The box is not finite, or is empty on some axis.</exception>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
         /// <exception cref="ObjectDisposedException">The shape has been disposed.</exception>
-        public Mesh ToMesh(Vec3 min, Vec3 max, int resolution) {
+        public Mesh ToMesh(Vec3 min, Vec3 max, int resolution,
+                           Action<double>? progress = null,
+                           CancellationToken cancellationToken = default) {
             if (resolution < MinResolution || resolution > MaxResolution) {
                 throw new ArgumentOutOfRangeException(nameof(resolution), resolution,
                     "Resolution must be between " + MinResolution + " and " + MaxResolution + ".");
@@ -315,11 +325,23 @@ namespace Goop {
             }
             ThrowIfDisposed();
 
-            // IntPtr.Zero, IntPtr.Zero: no progress callback yet (M6).
+            // Already cancelled? Don't start work that would be thrown away.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // null when there is no lambda and the token can never fire: the
+            // native side then runs with no callback at all. `using` is fine with
+            // null, and frees the GCHandle whatever happens below.
+            using ProgressBridge? bridge = ProgressBridge.Create(progress, cancellationToken);
+
             int status = NativeMethods.goop_shape_to_mesh(_handle, min, max, resolution,
-                IntPtr.Zero, IntPtr.Zero, out MeshSafeHandle handle);
-            if (status != 0) {
+                bridge?.Callback, bridge?.UserData ?? IntPtr.Zero, out MeshSafeHandle handle);
+
+            // If the lambda threw, report THAT - even on the last report, where the
+            // mesher had already finished and returned OK. A finished mesh is not
+            // worth hiding the caller's own exception for.
+            if (status != 0 || (bridge != null && bridge.Failed)) {
                 handle.Dispose();
+                bridge?.ThrowIfStopped(); // the lambda's exception, or OperationCanceledException(token)
                 Errors.ThrowIfError(status);
             }
 

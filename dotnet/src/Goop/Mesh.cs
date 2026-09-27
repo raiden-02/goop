@@ -55,6 +55,9 @@ namespace Goop {
             TriangleCount = (int)triangleCount;
         }
 
+        /// <summary>The native handle, for Goop itself and its tests.</summary>
+        internal MeshSafeHandle Handle => _handle;
+
         /// <summary>The number of vertices.</summary>
         public int VertexCount { get; }
 

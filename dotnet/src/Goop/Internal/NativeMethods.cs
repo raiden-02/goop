@@ -162,7 +162,7 @@ namespace Goop.Internal {
         )]
         internal static extern int goop_shape_to_mesh(
             ShapeSafeHandle shape, Vec3 boundsMin, Vec3 boundsMax, int resolution,
-            IntPtr progress, IntPtr userData, out MeshSafeHandle mesh);
+            ProgressCallback? progress, IntPtr userData, out MeshSafeHandle mesh);
 
         [DllImport(
             LibraryName,

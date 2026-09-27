@@ -69,11 +69,6 @@ namespace Goop.Gallery {
             //   * the same shape at a deliberately low resolution next to a high
             //     one, to make the grid visible
             //
-            // TODO (M6): pass a progress callback that draws a console progress
-            //       bar. The high-resolution meshes take long enough for it to
-            //       matter, and it is a real exercise of the delegate lifetime
-            //       rules in Internal/ProgressCallback.cs.
-            //
             // TODO: accept the resolution and an output directory on the command
             //       line rather than ignoring args, so the gallery can be
             //       regenerated cheaply at draft quality.
@@ -82,13 +77,27 @@ namespace Goop.Gallery {
         }
 
         private static void Save(Shape shape, Vec3 min, Vec3 max, int resolution, string path) {
+            string name = Path.GetFileName(path);
             var timer = Stopwatch.StartNew();
-            using var mesh = shape.ToMesh(min, max, resolution);
+
+            // The progress lambda is called from INSIDE the native mesher, once
+            // per grid slice. It redraws a one-line bar in place with '\r'.
+            int lastPercent = -1;
+            using var mesh = shape.ToMesh(min, max, resolution, progress: fraction => {
+                int percent = (int)(fraction * 100);
+                if (percent != lastPercent) {
+                    lastPercent = percent;
+                    int filled = percent / 5;
+                    Console.Write("\r  {0,-16} [{1}{2}] {3,3}%", name,
+                        new string('#', filled), new string('.', 20 - filled), percent);
+                }
+            });
             mesh.SaveStl(path);
             timer.Stop();
 
-            Console.WriteLine("  {0,-16} {1,8:N0} triangles  res {2,3}  {3,6:N0} ms",
-                Path.GetFileName(path), mesh.TriangleCount, resolution, timer.ElapsedMilliseconds);
+            // Overwrite the bar with the final result line.
+            Console.WriteLine("\r  {0,-16} {1,8:N0} triangles  res {2,3}  {3,6:N0} ms        ",
+                name, mesh.TriangleCount, resolution, timer.ElapsedMilliseconds);
         }
 
         /// <summary>

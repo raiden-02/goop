@@ -1,3 +1,8 @@
+using System;
+using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
+using System.Threading;
+
 namespace Goop.Internal {
     // ======================================================================
     // ProgressCallback - the managed side of the native progress function.
@@ -18,61 +23,124 @@ namespace Goop.Internal {
     // LONG meshes, on some machines, under memory pressure - because that is
     // when a GC actually runs mid-call.
     //
-    // The fix is to hold a strong managed reference to the delegate for the
-    // entire duration of the native call. Concretely:
+    // HOW THIS FILE SOLVES IT
     //
-    //   * assign the delegate to a LOCAL VARIABLE before the P/Invoke, so it
-    //     stays rooted for the call;
-    //   * and add GC.KeepAlive(thatLocal) AFTER the native call returns.
-    //     Without KeepAlive, an aggressive JIT is entitled to consider the local
-    //     dead from its last read - which is before the native call finishes.
+    // There are two textbook fixes:
     //
-    // A GCHandle (normal, not pinned) around the user's state object is the
-    // other half: it turns a managed object into an IntPtr that can ride along
-    // as the native user_data parameter and be unwrapped inside the callback.
-    // Free it in a finally block, always.
+    //   (a) a per-call delegate held in a local, with GC.KeepAlive(local) after
+    //       the native call so the JIT cannot consider it dead early;
+    //   (b) ONE static delegate that lives for the whole life of the process,
+    //       with the per-call state carried through the native user_data
+    //       pointer instead of captured in a closure.
     //
-    // The native typedef (goop_progress_fn) is settled. No managed delegate is
-    // declared here yet.
+    // This uses (b). A static readonly field is a GC root forever, so the thunk
+    // can never be collected - there is nothing to forget, no KeepAlive to get
+    // wrong, and no allocation per call. The state (the user's lambda, the
+    // CancellationToken, any exception) lives in a ProgressBridge object, and a
+    // GCHandle turns that object into an IntPtr that C++ carries around without
+    // understanding and hands straight back. That is exactly what user_data is
+    // for.
     // ======================================================================
 
-    // TODO: declare the delegate matching the native progress typedef, something
-    //       like:
-    //           internal delegate int ProgressCallback(double fraction, IntPtr userData);
-    //       with [UnmanagedFunctionPointer(CallingConvention.Cdecl)] on it. The
-    //       calling convention must match the C side exactly - a mismatch here
-    //       corrupts the stack rather than failing cleanly.
-    //
-    //       Return int, not bool: the native width of a managed bool is not what
-    //       most people expect. Nonzero means cancel, matching goop.h.
-    //
-    // TODO: a small helper that takes the user's Action<double> plus a
-    //       CancellationToken and produces (delegate, GCHandle) to hand to the
-    //       P/Invoke, with a Dispose/finally that frees the GCHandle.
-    //
-    // TODO: EXCEPTIONS MUST NOT ESCAPE THE CALLBACK. If the user's progress
-    //       lambda throws, that exception would unwind through native frames,
-    //       which is undefined behaviour. Wrap the user's call in try/catch
-    //       inside the callback body: stash the exception, return the cancel
-    //       code so the mesher stops cleanly, and rethrow it on the managed side
-    //       after the native call returns.
-    //
-    // TODO: fold CancellationToken in. The callback checks
-    //       token.IsCancellationRequested and returns nonzero, and the resulting
-    //       native cancelled status is translated into
-    //       OperationCanceledException by GoopException's mapping - so
-    //       cancellation behaves the way every other .NET API behaves.
-    //
-    // TODO: reentrancy. The callback runs on whichever thread is doing the
-    //       meshing, which is the caller's thread for now. If meshing ever moves
-    //       to a background thread, a progress callback touching UI state
-    //       becomes a cross-thread bug. Say which thread it runs on in the XML
-    //       docs on Shape.ToMesh.
-    //
-    // TODO (test): the one that actually catches the lifetime bug. Mesh at a
-    //       resolution high enough to take a while, and from inside the progress
-    //       callback force collections with GC.Collect() plus
-    //       GC.WaitForPendingFinalizers(). If the delegate is not rooted
-    //       properly, this crashes the test host - reliably, which is exactly
-    //       what makes it a good test.
+    /// <summary>
+    /// The managed shape of <c>goop_progress_fn</c>: <c>int32_t (*)(double, void*)</c>.
+    /// </summary>
+    /// <remarks>
+    /// Cdecl to match the C typedef. Returns <c>int</c>, not <c>bool</c>: a
+    /// managed bool marshals as a 4-byte Win32 BOOL by default, which is not
+    /// what the C side declares. 0 = carry on, nonzero = cancel.
+    /// </remarks>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate int ProgressCallback(double fraction, IntPtr userData);
+
+    /// <summary>
+    /// Everything one <c>goop_shape_to_mesh</c> call needs to report progress,
+    /// honour a <see cref="CancellationToken"/>, and survive a throwing lambda.
+    /// Create it right before the native call and dispose it right after.
+    /// </summary>
+    internal sealed class ProgressBridge : IDisposable {
+        // THE fix for the lifetime problem: one delegate, rooted by a static
+        // field for the life of the process. Its native thunk can never be freed.
+        private static readonly ProgressCallback SharedCallback = OnProgress;
+
+        private readonly Action<double>? _progress;
+        private readonly CancellationToken _cancellationToken;
+
+        // A NORMAL (not pinned) handle to this object. Normal is enough: C++ never
+        // dereferences user_data, it only passes it back, so the object is free to
+        // move - the handle keeps it alive and GCHandle.FromIntPtr finds it
+        // wherever it went. Pinning would only get in the GC's way.
+        private GCHandle _self;
+
+        // An exception thrown by the user's lambda, captured inside the callback
+        // and rethrown once we are safely back in managed code.
+        private ExceptionDispatchInfo? _error;
+
+        private ProgressBridge(Action<double>? progress, CancellationToken cancellationToken) {
+            _progress = progress;
+            _cancellationToken = cancellationToken;
+            _self = GCHandle.Alloc(this, GCHandleType.Normal);
+        }
+
+        /// <summary>
+        /// A bridge for this call, or <c>null</c> when there is nothing to report
+        /// and nothing to cancel - the native side then runs with no callback at
+        /// all, at zero cost.
+        /// </summary>
+        public static ProgressBridge? Create(Action<double>? progress, CancellationToken cancellationToken) {
+            if (progress == null && !cancellationToken.CanBeCanceled) {
+                return null;
+            }
+            return new ProgressBridge(progress, cancellationToken);
+        }
+
+        /// <summary>The function pointer to pass as <c>progress</c>.</summary>
+        public ProgressCallback Callback => SharedCallback;
+
+        /// <summary>The value to pass as <c>user_data</c>.</summary>
+        public IntPtr UserData => GCHandle.ToIntPtr(_self);
+
+        /// <summary>True if the user's lambda threw during the native call.</summary>
+        public bool Failed => _error != null;
+
+        /// <summary>
+        /// Call after the native function returns. Rethrows the user's own
+        /// exception if the lambda threw, or throws
+        /// <see cref="OperationCanceledException"/> carrying the caller's token if
+        /// the token is what stopped the mesher. Otherwise does nothing.
+        /// </summary>
+        public void ThrowIfStopped() {
+            // Rethrow with the ORIGINAL stack trace, pointing into the user's
+            // lambda - not a new exception pointing here.
+            _error?.Throw();
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        public void Dispose() {
+            if (_self.IsAllocated) {
+                _self.Free(); // always: a leaked GCHandle leaks this object forever
+            }
+        }
+
+        // Called FROM C++, on the thread that called goop_shape_to_mesh, once per
+        // z-slice. Must never let an exception escape (ABI rule 6): unwinding
+        // through native frames is undefined behaviour.
+        private static int OnProgress(double fraction, IntPtr userData) {
+            var bridge = (ProgressBridge)GCHandle.FromIntPtr(userData).Target!;
+            try {
+                if (bridge._cancellationToken.IsCancellationRequested) {
+                    return 1; // stop
+                }
+                bridge._progress?.Invoke(fraction);
+                // Checked again: the lambda itself may have requested cancellation.
+                return bridge._cancellationToken.IsCancellationRequested ? 1 : 0;
+            } catch (Exception ex) {
+                // Park the exception and ask the mesher to stop. It unwinds its
+                // own C++ frames normally, returns GOOP_ERROR_CANCELLED, and the
+                // caller rethrows this from managed code via ThrowIfStopped.
+                bridge._error = ExceptionDispatchInfo.Capture(ex);
+                return 1;
+            }
+        }
+    }
 }
