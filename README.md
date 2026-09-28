@@ -48,3 +48,7 @@ dotnet run --project dotnet\samples\Goop.Gallery        # writes STL files to ga
 - **[How SDFs work](docs/sdf.md):** distance fields, CSG as `min`/`max`, the smooth-union blend, and meshing.
 - **[Building and testing](docs/building.md):** prerequisites, the build steps, and debugging across the C# / C++ boundary.
 - **[Design notes](docs/design.md):** architecture, the ABI rules, ownership, errors, callbacks, threading, packaging, testing, and limitations.
+
+## License
+
+[MIT](LICENSE).
