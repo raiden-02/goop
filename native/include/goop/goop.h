@@ -58,7 +58,8 @@
 ///
 /// Bumped whenever the ABI changes in a way that breaks existing callers.
 /// goop_get_version() returns the value compiled into the DLL, so a caller can
-/// compare it with the value it was built against.
+/// compare it with the value it was built against. Goop.dll does exactly that
+/// before its first native call, and refuses to run on a mismatch.
 #define GOOP_ABI_VERSION 1
 
 #ifdef __cplusplus

@@ -15,7 +15,19 @@ namespace Goop.Tests {
         public void DllLoadsAndAbiVersionMatchesHeader() {
             // One call proves: the DLL was found, the export resolved (no name
             // mangling), the calling convention matches, and the process is x64.
-            Assert.AreEqual(1, NativeMethods.goop_get_version()); // GOOP_ABI_VERSION in goop.h
+            // It also ties the managed constant to the native one: bump
+            // GOOP_ABI_VERSION in goop.h without AbiCheck.ExpectedVersion and
+            // this fails.
+            Assert.AreEqual(AbiCheck.ExpectedVersion, NativeMethods.goop_get_version());
+        }
+
+        [TestMethod]
+        public void MismatchedAbiVersionIsRefusedWithAClearMessage() {
+            // A real mismatch needs a DLL from another build; the comparison is
+            // what matters, so it is tested directly.
+            var ex = Assert.ThrowsExactly<GoopException>(() => AbiCheck.Verify(AbiCheck.ExpectedVersion + 1));
+            StringAssert.Contains(ex.Message, "ABI version " + (AbiCheck.ExpectedVersion + 1));
+            StringAssert.Contains(ex.Message, "requires version " + AbiCheck.ExpectedVersion);
         }
 
         [TestMethod]

@@ -17,7 +17,7 @@
     "Cost: mixed-mode sessions start noticeably slower. That is the trade.",
     "",
     "For the TEST projects this file does not apply - VSTest spawns its own host",
-    "process. See dotnet/goop.runsettings and the note in README.md."
+    "process. See dotnet/goop.runsettings and docs/building.md."
   ],
 
   "profiles": {

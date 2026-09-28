@@ -13,7 +13,7 @@ namespace Goop.Tests {
 
         [TestMethod]
         public void FluentChainEvaluates() {
-            // The README usage. The inner spheres are undisposed temporaries; the
+            // The usage shown in the README. The inner spheres are undisposed temporaries; the
             // union retains them, so this is safe.
             using var shape = Sdf.Sphere(1.0).Union(Sdf.Sphere(2.0));
             Assert.AreEqual(-2.0, shape.Evaluate(Origin), Eps);

@@ -1,7 +1,9 @@
-# Goop — design notes
+# Goop design notes
 
 The decisions behind Goop and the reasoning for each. The code comments go into
-detail at the point of use; this document is the overview.
+detail at the point of use. This document is the overview. For background on
+distance fields themselves, see [How SDFs work](sdf.md). For build commands, see
+[Building and testing](building.md).
 
 ## Goals & non-goals
 
@@ -18,8 +20,23 @@ by hand so that every marshalling decision is explicit.
 ## Layering
 
 ```
-consumer  →  Goop (C#)  →  goop.h (C ABI)  →  C++17 core
+  consumer app  (e.g. the Gallery sample)
+        │
+        ▼
+  Goop.dll        C#, fluent API        Sdf.Sphere(...).SmoothUnion(...).ToMesh(...)
+        │                               Shape · Mesh · Vec3 · StlWriter
+        │  P/Invoke                     SafeHandles, blittable structs, pinned buffers
+        ▼
+  goop.h          C ABI                 extern "C", opaque handles, status codes
+        │                               goop_shape · goop_mesh · goop_vec3
+        ▼
+  goop_native     C++17 core            SDF node graph  →  surface-nets mesher
+                                        (shape.cpp)         (mesher.cpp)
 ```
+
+Each arrow is a boundary with its own rules. The one that matters most is the C
+ABI in the middle: everything above it may be C#, everything below it may be
+C++, and the line itself is C and nothing but C.
 
 - **The C++ core** (`shape.*`, `mesher.cpp`) uses ordinary C++: classes,
   virtual dispatch, `std::vector`, exceptions. It knows nothing about the ABI.
@@ -31,7 +48,7 @@ consumer  →  Goop (C#)  →  goop.h (C ABI)  →  C++17 core
   `IDisposable`, spans, no pointers.
 
 Each layer depends only on the one directly below it. The core is a static
-library so that C++ tests can link it directly; the ABI is tested from C#,
+library so that C++ tests can link it directly. The ABI is tested from C#,
 because only a foreign caller genuinely exercises calling conventions, layout
 and marshalling.
 
@@ -47,7 +64,7 @@ memory, so nodes are **intrusively reference counted**:
 - Copying a node is forbidden (`= delete` on `Shape`): a copy would duplicate
   child pointers without retaining them, which leads to a double free.
 - On the .NET side, **each `ShapeSafeHandle` owns exactly one count.** Handles
-  returned by native constructors already carry that count; nothing else in C#
+  returned by native constructors already carry that count, so nothing in C#
   calls `retain`.
 
 The count is `std::atomic<int>` because `SafeHandle` finalizers run on the
@@ -58,7 +75,7 @@ reference to its shape.
 
 ## Memory ownership of buffers
 
-**The caller allocates; native code only fills.** Batch evaluation and mesh
+**The caller allocates, and native code only fills.** Batch evaluation and mesh
 copy-out both take a pointer plus a capacity:
 
 1. ask for the count (`goop_mesh_vertex_count`),
@@ -120,10 +137,16 @@ user's lambda throws, the bridge stores the exception, returns "stop", and
 
 ## ABI rules
 
-Listed in full at the top of `goop.h`. In short: C types only; no exceptions
-across the boundary; fixed-width integers; every symbol prefixed `goop_`;
-caller-allocated output buffers; callbacks never throw; handles are opaque
-(incomplete types); struct layout is frozen once shipped.
+Listed in full at the top of `goop.h`. In short:
+
+- C types only.
+- No exceptions cross the boundary.
+- Fixed-width integers.
+- Every symbol is prefixed `goop_`.
+- Output buffers are allocated by the caller.
+- Callbacks never throw.
+- Handles are opaque (incomplete types).
+- Struct layout is frozen once shipped.
 
 The native DLL is named **`goop_native.dll`**, not `goop.dll`. On Windows,
 filenames are case-insensitive, so a native `goop.dll` and the managed `Goop.dll`
@@ -136,9 +159,20 @@ existing callers: a changed signature, a reordered struct, a renumbered status.
 Adding a new function is not a break. Fields are only ever appended to a
 struct, and status values are never renumbered.
 
-`goop_get_version()` returns the version compiled into the DLL. Today a test
-checks that it matches the header. A load-time check in `Goop.dll` that refuses
-to run against a DLL with a different version is not yet implemented.
+`goop_get_version()` returns the version compiled into the DLL. It is the one
+export whose signature can never change, so it is safe to call on a DLL of
+unknown version.
+
+`Goop.dll` carries its own expected version (`AbiCheck.ExpectedVersion`). Before
+the first real native call, which is always an `Sdf` factory because every shape
+starts there, it asks the DLL for its version once and throws a `GoopException`
+naming both numbers if they differ. Without the check, a mismatch fails in
+whatever way the particular change dictates. A renamed export fails loudly, but
+a reordered struct or a renumbered status code gives **silently wrong results**.
+With it, every mismatch becomes one clear error at first use.
+
+A test ties the two constants together: bumping `GOOP_ABI_VERSION` in `goop.h`
+without updating `AbiCheck.ExpectedVersion` fails the build's test step.
 
 ## Packaging
 
@@ -181,23 +215,33 @@ One test per real risk, placed at the layer where that risk lives.
 There is no reference mesh to compare against, so mesh tests check properties
 any correct closed mesh must have:
 
-- every index is in range, and no triangle reuses a vertex;
-- every vertex lies within one cell of the true surface;
-- **directed edges:** each appears exactly once and its reverse also appears,
-  which catches holes, flipped triangles and non-manifold edges;
-- the **signed volume** is positive (outward winding) and close to the analytic
+- Every index is in range, and no triangle reuses a vertex.
+- Every vertex lies within one cell of the true surface.
+- **Directed edges:** each appears exactly once and its reverse also appears,
+  which catches holes, flipped triangles and non-manifold edges.
+- The **signed volume** is positive (outward winding) and close to the analytic
   volume.
 
-## Open questions
+## Limitations and future work
 
-- **Automatic bounds.** The options are a bounding box per node (exact, but
-  every new primitive and transform must supply one) or a coarse search of the
-  field (no per-node work, but it can miss thin features). Per-node boxes are
-  the likely choice.
+- **More primitives and transforms.** Only the sphere and translation exist.
+  Box, torus and cylinder need their exact distance functions, and rotation
+  and uniform scale are exact too. Twist is only a distance *bound*, so the mesher
+  has to tolerate a field that underestimates.
+- **Automatic bounds.** `ToMesh` needs the caller to supply a box that contains
+  the shape. The options are a bounding box per node (exact, but every new
+  primitive and transform must supply one) or a coarse search of the field (no
+  per-node work, but it can miss thin features). Per-node boxes fit the
+  existing node graph better.
+- **Sharper meshing.** Averaging edge crossings rounds off sharp features, so a
+  CSG edge comes out bevelled. Dual contouring's per-cell least-squares solve
+  (the "QEF"), using surface normals, would put vertices on the edge.
+- **Sparse sampling.** Every grid sample is evaluated, including the deep
+  interior and far exterior. A narrow band or an octree around the surface would
+  make high resolutions affordable.
 - **Recursive teardown.** Releasing a very deeply nested expression recurses
-  once per level and could exhaust the stack. The fix is an explicit worklist
-  instead of recursion, which is only worth doing if deep expressions become a
-  real use case.
-- **More platforms.** The native payload would move into a separate
-  `Goop.runtime.<rid>` package per platform, which is the pattern larger native
-  libraries use.
+  once per level and could exhaust the stack. An explicit worklist instead of
+  recursion would remove the limit.
+- **More platforms.** Only Windows x64 is supported. The native payload would move into
+  a separate `Goop.runtime.<rid>` package per platform, which is the pattern
+  larger native libraries use.

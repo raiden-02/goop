@@ -32,6 +32,10 @@ namespace Goop {
         /// <exception cref="ArgumentOutOfRangeException">
         /// <paramref name="radius"/> is zero, negative, or NaN.
         /// </exception>
+        /// <exception cref="GoopException">
+        /// The loaded goop_native.dll comes from a different build and speaks a
+        /// different ABI version. Checked once, on first use.
+        /// </exception>
         public static Shape Sphere(double radius) {
             // Checked here first so the caller gets ArgumentOutOfRangeException
             // with ParamName = "radius" and the bad value. The native side
@@ -40,6 +44,11 @@ namespace Goop {
             if (!(radius > 0.0)) {
                 throw new ArgumentOutOfRangeException(nameof(radius), radius, "Radius must be greater than zero.");
             }
+
+            // Every Shape starts at an Sdf factory, so this is the single place
+            // that guarantees the ABI check runs before any real native call.
+            // New factories must call it too.
+            AbiCheck.EnsureCompatible();
 
             int status = NativeMethods.goop_shape_sphere(radius, out ShapeSafeHandle handle);
             return Shape.FromNative(status, handle);
