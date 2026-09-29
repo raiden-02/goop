@@ -1,29 +1,14 @@
-# ===========================================================================
-# Goop - .gitignore
-#
-# Nothing generated belongs in this repo. The two build systems (CMake and
-# MSBuild) between them produce a lot of it.
-# ===========================================================================
+/notes/
 
-# --- Goop's own build outputs ----------------------------------------------
-# The CMake build tree. Everything under it is regenerable from CMakeLists.txt,
-# including the FetchContent clone of Catch2 and goop_native.dll itself.
-# Leading / anchors it to the repo ROOT: a bare build/ would also swallow
-# dotnet/src/Goop/build/, which holds the Goop.targets shipped in the package.
+# --- Build outputs ---------------------------------------------------------
+# Anchored to the repo root so dotnet/src/Goop/build/ (shipped Goop.targets) is kept.
 /build/
 /build-*/
 
-# `dotnet pack` output and the local folder feed that Goop.PackageTests
-# restores from.
+# dotnet pack output and the PackageTests local feed.
 artifacts/
 
-# Generated STL files from the gallery sample. These can be tens of megabytes
-# and are reproducible by running the sample, so they stay out of history.
-# Rendered SCREENSHOTS in gallery/ are committed - those are not regenerable.
-#
-# Note the trailing /* rather than /: ignoring the DIRECTORY would stop git
-# descending into it at all, and the .gitkeep negation below would never be
-# evaluated. Ignoring its CONTENTS leaves the folder itself trackable.
+# Generated gallery STL. /* so the .gitkeep negation still applies.
 gallery/output/*
 !gallery/output/.gitkeep
 
@@ -57,7 +42,6 @@ coverage*.info
 # NuGet
 *.nupkg
 *.snupkg
-# Keep the checked-in nuget.config files; ignore local package caches.
 **/packages/*
 !**/packages/build/
 *.nuget.props
@@ -111,8 +95,7 @@ project.fragment.lock.json
 *.cache
 
 # --- CMake -----------------------------------------------------------------
-# Local preset overrides are per-developer by definition. CMakePresets.json
-# would be committed if we had one; CMakeUserPresets.json never is.
+# Per-developer preset overrides. CMakePresets.json stays tracked.
 CMakeUserPresets.json
 CMakeCache.txt
 CMakeFiles/
@@ -137,7 +120,7 @@ _deps/
 .cache/
 .clangd/
 
-# --- OS junk ---------------------------------------------------------------
+# --- OS --------------------------------------------------------------------
 Thumbs.db
 ehthumbs.db
 Desktop.ini

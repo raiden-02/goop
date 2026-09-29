@@ -1,5 +1,7 @@
 # Building and testing
 
+Commands to build, test, and pack Goop on Windows x64. One script runs the C++ build and the C# build.
+
 ## Prerequisites
 
 | Requirement | Notes |
