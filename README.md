@@ -1,11 +1,9 @@
 # Goop
 
-*Sculpt shapes that melt into each other, then print them.*
-
-A small [signed-distance-field](docs/sdf.md) kernel: a C++17 core behind a stable
-C ABI, driven from C# through a fluent API on .NET Framework 4.8, .NET 8 and
-.NET 10. Shapes are combined with CSG and smooth blends, meshed with surface nets,
-and exported as STL.
+A signed distance field (SDF) modelling library. The geometry core is C++17 and
+exposes a C ABI, which a C# library wraps for .NET Framework 4.8, .NET 8 and
+.NET 10. You build shapes from primitives, combine them with CSG and smooth
+blends, mesh the result into triangles, and export it as STL.
 
 ```csharp
 using var blob = Sdf.Sphere(1.0)
@@ -18,25 +16,25 @@ using var mesh = blob.ToMesh(new Vec3(-1.5, -1.5, -1.5), new Vec3(3.2, 1.5, 1.5)
 mesh.SaveStl("blob.stl");
 ```
 
-![Two spheres combined with a plain union, then melted together with a smooth union](gallery/blob.png)
+![Two spheres combined with a plain union, then joined with a smooth union](gallery/blob.png)
 
-**Status:** experimental. The whole pipeline works end to end on Windows x64, but
-the shape vocabulary is still small. See
-[limitations](docs/design.md#limitations-and-future-work).
+![A box with a sphere smooth-unioned onto its top face](gallery/box_blob.png)
+
+Windows x64 only for now. See [limitations](docs/design.md#limitations-and-future-work).
 
 ## Features
 
-- **Modelling:** a sphere and a box, combined with union, intersection, subtraction and smooth union, and moved with translation.
-- **Evaluation:** a single point, or a whole batch of points in one native call.
-- **Meshing:** surface nets with progress reporting and cancellation. The output is watertight and wound consistently.
+- **Shapes:** sphere and box, combined with union, intersection, subtraction and smooth union, and moved with translation.
+- **Evaluation:** the distance at one point, or at a batch of points in a single native call.
+- **Meshing:** surface nets, with progress reporting and cancellation. Meshes are closed and consistently wound.
 - **Export:** binary STL.
-- **Interop:** a narrow, documented C ABI with reference-counted handles, `SafeHandle` ownership, exception-safe callbacks, and an ABI version check on first use.
-- **Packaging:** one NuGet package that carries the native DLL for all three target frameworks, verified by a project that consumes the packed `.nupkg`.
+- **Interop:** a documented C ABI with reference-counted handles, `SafeHandle` ownership on the .NET side, exception-safe callbacks, and an ABI version check on first use.
+- **Packaging:** one NuGet package that carries the native DLL for all three target frameworks, tested by a project that installs the packed `.nupkg`.
 
 ## Quick start
 
-On Windows x64, with Visual Studio 2022+ (C++ workload), the .NET 10 SDK and the
-.NET Framework 4.8 Developer Pack installed:
+Requires Windows x64, Visual Studio 2022 or later with the C++ workload, the
+.NET 10 SDK, and the .NET Framework 4.8 Developer Pack.
 
 ```powershell
 .\scripts\build.ps1                                     # build, test, pack
@@ -45,9 +43,9 @@ dotnet run --project dotnet\samples\Goop.Gallery        # writes STL files to ga
 
 ## Documentation
 
-- **[How SDFs work](docs/sdf.md):** distance fields, CSG as `min`/`max`, the smooth-union blend, and meshing.
-- **[Building and testing](docs/building.md):** prerequisites, the build steps, and debugging across the C# / C++ boundary.
-- **[Design notes](docs/design.md):** architecture, the ABI rules, ownership, errors, callbacks, threading, packaging, testing, and limitations.
+- **[How SDFs work](docs/sdf.md):** distance functions, CSG with `min` and `max`, smooth union, and meshing.
+- **[Building and testing](docs/building.md):** prerequisites, build steps, and debugging across the C# / C++ boundary.
+- **[Design notes](docs/design.md):** architecture, ABI rules, ownership, errors, callbacks, threading, packaging, testing, and limitations.
 
 ## License
 

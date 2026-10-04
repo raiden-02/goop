@@ -7,10 +7,10 @@ distance fields themselves, see [How SDFs work](sdf.md). For build commands, see
 
 ## Goals & non-goals
 
-**Goals.** A small, correct signed-distance-field kernel whose native core can be
-consumed from .NET with no ambiguity about ownership, errors or lifetimes. The
-C boundary is treated as a product surface: narrow, documented, stable, and
-tested from the other side.
+**Goals.** A correct signed distance field library whose native core can be
+used from .NET with clear rules for ownership, errors and lifetimes. The C ABI
+is the public interface, so it is kept narrow, documented and stable, and it is
+tested from C#, the way a real consumer calls it.
 
 **Non-goals.** Being a full modelling kernel (no B-rep, no NURBS). Speed at any
 cost: the mesher samples a dense grid on purpose, because it is simple and
@@ -204,7 +204,7 @@ because NuGet caches by version and would otherwise keep serving a stale
 One test per real risk, placed at the layer where that risk lives.
 
 - **C++ (Catch2), against the static core:** distance maths, CSG, smooth union,
-  translation, the melted gap, reference counting (observed through a probe
+  translation, the box, joining across a gap, reference counting (observed through a probe
   node that counts live instances), mesh quality, and cancellation.
 - **C# (MSTest), through the ABI, on all three frameworks:** DLL loading and the
   ABI version, struct layout, error propagation, buffer bounds, handle lifetimes,

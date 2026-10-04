@@ -5,10 +5,10 @@
 A **signed distance field** (SDF) is a function that takes a point in space and
 returns the distance to the nearest surface of a shape: **negative** inside,
 **zero** exactly on the surface, **positive** outside. A unit sphere at the
-origin is just `length(p) - 1`. That is the whole representation: no vertices, no
-faces, just a function you can ask about any point.
+origin is `length(p) - 1`. The shape is stored as this function, not as
+vertices and faces.
 
-A box centred at the origin with half extents `b` is only slightly longer:
+A box centred at the origin with half extents `b`:
 
 ```
 q = abs(p) - b
@@ -33,10 +33,9 @@ each:
 | Subtraction | `max(a, -b)` | inside `a` and **not** inside `b` |
 
 Moving a shape is just as simple: to evaluate a shape translated by `t` at point
-`p`, evaluate the original at `p - t`. The geometry never moves. The question
-does.
+`p`, evaluate the original at `p - t`.
 
-## Smooth union: shapes that melt
+## Smooth union
 
 A plain `min` leaves a sharp crease where two surfaces meet. The **smooth union**
 replaces it with a polynomial blend:
@@ -61,8 +60,8 @@ Above it they join, and the neck thickens as `k` grows:
 
 ## From a field to triangles
 
-A field has no triangles, so it has to be meshed before it can be printed or
-viewed. Goop uses **surface nets**:
+A field has no triangles, so it has to be meshed before it can be rendered or
+saved as STL. Goop uses **surface nets**:
 
 1. Sample the field on a grid.
 2. Find the cells whose corners disagree in sign, since the surface passes

@@ -28,7 +28,7 @@
     <PackageId>Goop</PackageId>
     <Version>0.1.0</Version>
     <Authors>raiden-02</Authors>
-    <Description>A tiny signed-distance-field sculpting kernel: shapes that melt into each other, meshed to triangles and exported as STL.</Description>
+    <Description>Signed distance field modelling for .NET: primitives, CSG and smooth blends over a C++17 core, meshed with surface nets and exported as STL.</Description>
     <PackageTags>sdf;signed-distance-field;csg;mesh;stl;interop</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/raiden-02/goop</RepositoryUrl>
