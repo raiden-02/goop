@@ -20,6 +20,19 @@ namespace Goop.Tests {
         }
 
         [TestMethod]
+        public void BoxMeshIsClosedAndEnclosesTheRightVolume() {
+            // Sharp edges and corners are the hard case for surface nets, which
+            // bevels them. The mesh must still be closed and outward facing, and
+            // the bevel should cost only a few percent of the 2 x 1.5 x 1 volume.
+            using var box = Sdf.Box(new Vec3(1.0, 0.75, 0.5));
+            using var mesh = box.ToMesh(Min, Max, 32);
+            MeshOracle.AssertGoodClosedMesh(mesh, box, 3.0 / 32);
+
+            double volume = MeshOracle.SignedVolume(mesh.GetVertices(), mesh.GetIndices());
+            Assert.AreEqual(3.0, volume, 0.15);
+        }
+
+        [TestMethod]
         public void MeshOutlivesTheShapeItCameFrom() {
             // A mesh is a snapshot: it holds no reference to the shape.
             Mesh mesh;

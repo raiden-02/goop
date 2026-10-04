@@ -103,6 +103,16 @@ class Sphere final : public Shape {
     double m_radius;
 };
 
+class Box final : public Shape {
+  public:
+    explicit Box(Vec3 halfExtents) : m_halfExtents(halfExtents) {}
+
+    double eval(const Vec3& p) const override;
+
+  private:
+    Vec3 m_halfExtents;
+};
+
 // ---------------------------------------------------------------------------
 // BinaryShape - base for every node with two children (all the CSG ops).
 //

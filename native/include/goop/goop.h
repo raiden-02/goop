@@ -108,6 +108,14 @@ typedef struct goop_shape goop_shape;
 /// @return GOOP_OK, or GOOP_ERROR_INVALID_ARGUMENT / GOOP_ERROR_OUT_OF_MEMORY.
 GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_shape);
 
+/// @brief Creates an axis-aligned box centred at the origin.
+/// @param half_extents Half the width, height, and depth of the box. Every
+///       component must be greater than zero.
+/// @param out_shape Receives the new handle, or NULL on failure. Caller owns
+///       one reference and must pass it to goop_shape_release.
+/// @return GOOP_OK, or GOOP_ERROR_INVALID_ARGUMENT / GOOP_ERROR_OUT_OF_MEMORY.
+GOOP_API int32_t goop_shape_box(goop_vec3 half_extents, goop_shape** out_shape);
+
 /// @brief Drops one reference. Destroys the shape when the count reaches zero.
 /// @param shape May be NULL, in which case this does nothing.
 GOOP_API void goop_shape_release(goop_shape* shape);

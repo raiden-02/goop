@@ -79,6 +79,14 @@ namespace Goop.Internal {
             ExactSpelling = true,
             SetLastError = false
         )]
+        internal static extern int goop_shape_box(Vec3 halfExtents, out ShapeSafeHandle shape);
+
+        [DllImport(
+            LibraryName,
+            CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true,
+            SetLastError = false
+        )]
         internal static extern void goop_shape_release(IntPtr shapeHandle);
 
         [DllImport(

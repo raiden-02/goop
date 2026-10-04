@@ -53,5 +53,24 @@ namespace Goop {
             int status = NativeMethods.goop_shape_sphere(radius, out ShapeSafeHandle handle);
             return Shape.FromNative(status, handle);
         }
+
+        /// <summary>Creates a box centred at the origin.</summary>
+        /// <param name="halfExtents">The half-extents of the box. All components must be greater than zero.</param>
+        /// <returns>A new shape. The caller owns it and should dispose it.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// <paramref name="halfExtents"/> has any component that is not greater than zero.
+        /// </exception>
+        /// <exception cref="GoopException">
+        /// The loaded goop_native.dll comes from a different build and speaks a
+        /// different ABI version. Checked once, on first use.
+        /// </exception>
+        public static Shape Box(Vec3 halfExtents) {
+            if (!(halfExtents.X > 0.0) || !(halfExtents.Y > 0.0) || !(halfExtents.Z > 0.0)) {
+                throw new ArgumentOutOfRangeException(nameof(halfExtents), halfExtents, "All components of halfExtents must be greater than zero.");
+            }
+            AbiCheck.EnsureCompatible();
+            int status = NativeMethods.goop_shape_box(halfExtents, out ShapeSafeHandle handle);
+            return Shape.FromNative(status, handle);
+        }
     }
 }

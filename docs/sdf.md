@@ -8,6 +8,19 @@ returns the distance to the nearest surface of a shape: **negative** inside,
 origin is just `length(p) - 1`. That is the whole representation: no vertices, no
 faces, just a function you can ask about any point.
 
+A box centred at the origin with half extents `b` is only slightly longer:
+
+```
+q = abs(p) - b
+d = length(max(q, 0)) + min(max(q.x, q.y, q.z), 0)
+```
+
+`abs` folds every point into one octant, since the box is symmetric. Outside,
+the first term is the distance to the nearest face, edge or corner. Inside, the
+second term is the (negative) distance to the nearest face.
+
+![A box with a sphere smooth-unioned onto its top face](../gallery/box_blob.png)
+
 ## Combining shapes is arithmetic
 
 Because shapes are functions, constructive solid geometry reduces to one line

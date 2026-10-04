@@ -150,6 +150,15 @@ TEST_CASE("sphere: signed, and a true Euclidean distance") {
     CHECK_THAT(at(s, 3, 4, 0), WithinAbs(4.0, kEps));  // |(3,4,0)| = 5, minus radius
 }
 
+TEST_CASE("box: signed, and a true Euclidean distance") {
+    Ref b{new goop::Box(goop::Vec3{1.0, 2.0, 3.0})};
+    CHECK_THAT(at(b, 0, 0, 0), WithinAbs(-1.0, kEps));                 // inside
+    CHECK_THAT(at(b, 1, 0, 0), WithinAbs(0.0, kEps));                  // on the surface
+    CHECK_THAT(at(b, 2, 0, 0), WithinAbs(1.0, kEps));                  // outside
+    CHECK_THAT(at(b, 2, 3, 4), WithinAbs(std::sqrt(1 + 1 + 1), kEps)); // diagonal to corner
+    CHECK_THAT(at(b, -2, 0, 0), WithinAbs(1.0, kEps));                 // outside, negative side
+}
+
 TEST_CASE("csg: union = min, intersect = max, subtract = max(a, -b)") {
     // Concentric spheres: at the origin inner = -1, outer = -2.
     Ref inner{new goop::Sphere(1.0)};

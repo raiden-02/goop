@@ -52,6 +52,27 @@ namespace Goop.Tests {
         }
 
         [TestMethod]
+        public void BoxHalfExtentsCrossWithAllThreeComponents() {
+            // A different extent per axis, so a dropped or swapped component moves
+            // a face. The -x point catches a missing abs() in the native formula.
+            using var box = Sdf.Box(new Vec3(1, 2, 3));
+            Assert.AreEqual(-1.0, box.Evaluate(Origin), Eps);
+            Assert.AreEqual(1.0, box.Evaluate(new Vec3(-2, 0, 0)), Eps);
+            Assert.AreEqual(1.0, box.Evaluate(new Vec3(0, 3, 0)), Eps);
+            Assert.AreEqual(1.0, box.Evaluate(new Vec3(0, 0, 4)), Eps);
+            Assert.AreEqual(Math.Sqrt(3.0), box.Evaluate(new Vec3(2, 3, 4)), Eps);
+        }
+
+        [TestMethod]
+        [DataRow(0.0, 1.0, 1.0)]
+        [DataRow(1.0, -1.0, 1.0)]
+        [DataRow(1.0, 1.0, double.NaN)]
+        public void BoxRejectsNonPositiveExtents(double x, double y, double z) {
+            var ex = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Sdf.Box(new Vec3(x, y, z)));
+            Assert.AreEqual("halfExtents", ex.ParamName);
+        }
+
+        [TestMethod]
         public void TranslateOffsetCrossesWithAllThreeComponents() {
             // A different value per axis: a dropped or swapped component would move
             // the centre elsewhere, and it would not read -1.

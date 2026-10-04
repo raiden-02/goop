@@ -26,7 +26,7 @@ the shape vocabulary is still small. See
 
 ## Features
 
-- **Modelling:** a sphere, combined with union, intersection, subtraction and smooth union, and moved with translation.
+- **Modelling:** a sphere and a box, combined with union, intersection, subtraction and smooth union, and moved with translation.
 - **Evaluation:** a single point, or a whole batch of points in one native call.
 - **Meshing:** surface nets with progress reporting and cancellation. The output is watertight and wound consistently.
 - **Export:** binary STL.

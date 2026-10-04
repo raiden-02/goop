@@ -57,6 +57,16 @@ namespace Goop.Gallery {
                 Save(blended, min, max, 96, Path.Combine(outputDirectory, "blend_k" + k.ToString("0.0").Replace('.', '_') + ".stl"));
             }
 
+            // A box with a sphere melted onto its top face. The box keeps its
+            // flat faces away from the blend; only the seam is softened.
+            using (var slab = Sdf.Box(new Vec3(1.2, 0.5, 0.8)))
+            using (var dome = Sdf.Sphere(0.7))
+            using (var raised = dome.Translate(0, 0.9, 0))
+            using (var boxBlob = slab.SmoothUnion(raised, 0.5)) {
+                Save(boxBlob, new Vec3(-1.5, -0.8, -1.1), new Vec3(1.5, 1.9, 1.1), 128,
+                    Path.Combine(outputDirectory, "box_blob.stl"));
+            }
+
             Console.WriteLine();
             Console.WriteLine("Open the .stl files in any 3D viewer (Windows: 3D Viewer, or drag onto");
             Console.WriteLine("https://www.viewstl.com). Start with blob_apart.stl next to blob.stl.");

@@ -216,6 +216,24 @@ extern "C" GOOP_API int32_t goop_shape_sphere(double radius, goop_shape** out_sh
     });
 }
 
+extern "C" GOOP_API int32_t goop_shape_box(goop_vec3 half_extents, goop_shape** out_shape) {
+    if (out_shape == nullptr) {
+        set_last_error("out_shape must not be null");
+        return GOOP_ERROR_INVALID_ARGUMENT;
+    }
+    // Clear first, so a failed call can never leave a stale handle behind.
+    *out_shape = nullptr;
+
+    return guard([&]() -> int32_t {
+        if (!(half_extents.x > 0.0) || !(half_extents.y > 0.0) || !(half_extents.z > 0.0)) {
+            throw std::invalid_argument("half_extents must be positive");
+        }
+        *out_shape =
+            as_handle(new goop::Box(goop::Vec3{half_extents.x, half_extents.y, half_extents.z}));
+        return GOOP_OK;
+    });
+}
+
 extern "C" GOOP_API void goop_shape_retain(goop_shape* shape) {
     if (shape == nullptr) {
         return;

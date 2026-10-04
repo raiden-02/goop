@@ -25,6 +25,22 @@ double Sphere::eval(const Vec3& p) const {
     return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - m_radius;
 }
 
+double Box::eval(const Vec3& p) const {
+    // Fold p into the positive octant: the box is symmetric about each axis.
+    const double qx = std::abs(p.x) - m_halfExtents.x;
+    const double qy = std::abs(p.y) - m_halfExtents.y;
+    const double qz = std::abs(p.z) - m_halfExtents.z;
+
+    // Outside: distance to the nearest point on the box. Zero when inside.
+    const double ox = std::max(qx, 0.0), oy = std::max(qy, 0.0), oz = std::max(qz, 0.0);
+    const double outside = std::sqrt(ox * ox + oy * oy + oz * oz);
+
+    // Inside: negative distance to the nearest face. Zero when outside.
+    const double inside = std::min(std::max({qx, qy, qz}), 0.0);
+
+    return outside + inside;
+}
+
 // ---------------------------------------------------------------------------
 // CSG combinators. Inside is negative, so:
 //   union     - inside EITHER   -> min(a, b)

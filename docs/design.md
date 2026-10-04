@@ -224,8 +224,8 @@ any correct closed mesh must have:
 
 ## Limitations and future work
 
-- **More primitives and transforms.** Only the sphere and translation exist.
-  Box, torus and cylinder need their exact distance functions, and rotation
+- **More primitives and transforms.** Only the sphere, the box and translation
+  exist. Torus and cylinder need their exact distance functions, and rotation
   and uniform scale are exact too. Twist is only a distance *bound*, so the mesher
   has to tolerate a field that underestimates.
 - **Automatic bounds.** `ToMesh` needs the caller to supply a box that contains
